@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct OnboardingFlowView: View {
+    let onCompleted: () -> Void
     @State private var page: OnboardingPage = .welcome
 
     var body: some View {
@@ -21,7 +22,10 @@ struct OnboardingFlowView: View {
             case .introThree:
                 IntroThreeScreen(
                     onPrevious: { page = .introTwo },
-                    onFinish: { page = .welcome }
+                    onFinish: {
+                        page = .welcome
+                        onCompleted()
+                    }
                 )
             }
         }
