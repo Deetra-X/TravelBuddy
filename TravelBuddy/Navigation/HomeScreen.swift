@@ -18,6 +18,13 @@ struct HomeScreen: View {
             Group {
                 if contentTab == .wishlist {
                     WishlistScreen(items: $wishlistItems)
+                } else if contentTab == .location {
+                    MapScreen(locationManager: locationManager) {
+                        selectedTab = .home
+                        contentTab = .home
+                    }
+                } else if contentTab == .profile {
+                    ProfileScreen()
                 } else {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 18) {
@@ -98,15 +105,9 @@ struct HomeScreen: View {
             Botum_Navigation(selectedTab: selectedTab) { tab in
                 selectedTab = tab
 
-                if tab == .profile {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isMenuOpen.toggle()
-                    }
-                } else {
-                    contentTab = tab
-                    if isMenuOpen {
-                        isMenuOpen = false
-                    }
+                contentTab = tab
+                if isMenuOpen {
+                    isMenuOpen = false
                 }
             }
             .padding(.horizontal, 16)

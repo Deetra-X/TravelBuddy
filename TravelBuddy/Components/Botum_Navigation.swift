@@ -3,7 +3,7 @@ import SwiftUI
 enum HomeTab: String, CaseIterable {
     case home = "Home"
     case wishlist = "Wishlist"
-    case location = "Location"
+    case location = "Map"
     case profile = "Profile"
 
     var icon: String {
