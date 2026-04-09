@@ -13,9 +13,14 @@ struct RootView: View {
         Group {
             switch route {
             case .onboarding:
-                OnboardingFlowView {
-                    route = .auth
-                }
+                OnboardingFlowView(
+                    onCompleted: {
+                        route = .auth
+                    },
+                    onTemporaryHome: {
+                        route = .home
+                    }
+                )
             case .auth:
                 AuthFlowView {
                     route = .home

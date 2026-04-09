@@ -55,7 +55,7 @@ struct IntroOneScreen: View {
 
                 Spacer()
 
-                Botum_Navigation(
+                OnboardingActionNavigation(
                     leadingTitle: leadingTitle,
                     trailingTitle: trailingTitle,
                     leadingAction: leadingAction,

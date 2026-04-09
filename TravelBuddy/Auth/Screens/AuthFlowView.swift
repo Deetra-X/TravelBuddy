@@ -33,7 +33,8 @@ struct AuthFlowView: View {
                 case .signUp:
                     SignUpScreen(
                         viewModel: viewModel,
-                        onSignUpSuccess: onLoginSuccess
+                        onSignUpSuccess: onLoginSuccess,
+                        onTemporaryHome: onLoginSuccess
                     )
                 case .forgotPassword:
                     ForgotPasswordScreen(

@@ -1,37 +1,57 @@
 import SwiftUI
 
+enum HomeTab: String, CaseIterable {
+    case home = "Home"
+    case wishlist = "Wishlist"
+    case location = "Location"
+    case profile = "Profile"
+
+    var icon: String {
+        switch self {
+        case .home: return "house.fill"
+        case .wishlist: return "heart.fill"
+        case .location: return "location"
+        case .profile: return "person"
+        }
+    }
+}
+
 struct Botum_Navigation: View {
-    let leadingTitle: String
-    let trailingTitle: String
-    var leadingAction: () -> Void
-    var trailingAction: () -> Void
-    var showsTrailingChevron: Bool = true
+    let selectedTab: HomeTab
+    var onSelect: (HomeTab) -> Void
 
     var body: some View {
         HStack {
-            Button(action: leadingAction) {
-                Text(leadingTitle)
-                    .font(.headline)
-                    .foregroundStyle(Color.travelPrimary)
-            }
-            .buttonStyle(.plain)
+            ForEach(HomeTab.allCases, id: \.self) { tab in
+                Button {
+                    onSelect(tab)
+                } label: {
+                    VStack(spacing: 5) {
+                        Image(systemName: tab.icon)
+                            .font(.headline)
 
-            Spacer()
-
-            Button(action: trailingAction) {
-                HStack(spacing: 6) {
-                    Text(trailingTitle)
-                    if showsTrailingChevron {
-                        Image(systemName: "chevron.right")
-                            .font(.subheadline.weight(.semibold))
+                        Text(tab.rawValue)
+                            .font(.caption2)
                     }
+                    .foregroundStyle(tab == selectedTab ? Color.travelPrimary : Color.gray)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 8)
+                    .background(
+                        Group {
+                            if tab == selectedTab {
+                                Capsule(style: .continuous)
+                                    .fill(Color.travelPrimary.opacity(0.15))
+                            }
+                        }
+                    )
                 }
-                .font(.headline)
-                .foregroundStyle(Color.travelPrimary)
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
         }
-        .padding(.horizontal, 22)
-        .padding(.bottom, 10)
+        .padding(8)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.85))
+        )
     }
 }

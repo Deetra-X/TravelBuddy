@@ -3,6 +3,7 @@ import SwiftUI
 struct SignUpScreen: View {
     @ObservedObject var viewModel: AuthViewModel
     let onSignUpSuccess: () -> Void
+    var onTemporaryHome: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
 
@@ -26,6 +27,21 @@ struct SignUpScreen: View {
                     Text("Sign up to enjoy the feature of TravelBuddy")
                         .font(.subheadline)
                         .foregroundStyle(Color.travelBody)
+
+                    Button {
+                        onTemporaryHome()
+                    } label: {
+                        Text("Temporary: Go Home")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 12)
+                            .frame(height: 32)
+                            .background(
+                                Capsule(style: .continuous)
+                                    .fill(Color.travelPrimary)
+                            )
+                    }
+                    .buttonStyle(.plain)
 
                     if let message = viewModel.errorMessage {
                         AuthErrorBanner(message: message)
