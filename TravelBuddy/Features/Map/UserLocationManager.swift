@@ -46,8 +46,14 @@ final class UserLocationManager: NSObject, ObservableObject, CLLocationManagerDe
             locationManager.requestWhenInUseAuthorization()
         case .denied, .restricted:
             locationManager.stopUpdatingLocation()
+            location = nil
+            horizontalAccuracy = nil
+            region = sriLankaRegion
         @unknown default:
             locationManager.stopUpdatingLocation()
+            location = nil
+            horizontalAccuracy = nil
+            region = sriLankaRegion
         }
     }
 
@@ -81,6 +87,8 @@ final class UserLocationManager: NSObject, ObservableObject, CLLocationManagerDe
             locationManager.requestLocation()
         } else if authorizationStatus == .denied || authorizationStatus == .restricted {
             locationManager.stopUpdatingLocation()
+            location = nil
+            horizontalAccuracy = nil
             region = sriLankaRegion
         }
     }

@@ -48,12 +48,12 @@ struct ExplorePlaceCard: View {
     let distanceText: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 10) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color(hex: item.accentHex), Color.travelPrimary.opacity(0.45)],
+                            colors: [Color(hex: item.accentHex), Color.travelPrimary.opacity(0.5)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -69,30 +69,35 @@ struct ExplorePlaceCard: View {
                             Color.clear
                         }
                     }
-                    .opacity(0.42)
                 }
+
+                LinearGradient(
+                    colors: [.black.opacity(0.24), .clear, .black.opacity(0.18)],
+                    startPoint: .top,
+                    endPoint: .bottom
+                )
             }
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                .frame(width: 126, height: 130)
-                .overlay(alignment: .topTrailing) {
-                    HStack(spacing: 3) {
-                        Image(systemName: "star.fill")
-                            .font(.caption2)
-                        Text(String(format: "%.1f", item.rating))
-                            .font(.caption2)
-                    }
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 4)
-                    .background(.black.opacity(0.22), in: Capsule())
-                    .padding(6)
+            .frame(width: 156, height: 146)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .overlay(alignment: .topTrailing) {
+                HStack(spacing: 3) {
+                    Image(systemName: "star.fill")
+                        .font(.caption2)
+                    Text(String(format: "%.1f", item.rating))
+                        .font(.caption2.weight(.semibold))
                 }
-                .overlay(alignment: .bottomLeading) {
-                    Image(systemName: "mountain.2.fill")
-                        .font(.title3)
-                        .foregroundStyle(.white.opacity(0.95))
-                        .padding(8)
-                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 5)
+                .background(.black.opacity(0.28), in: Capsule())
+                .padding(8)
+            }
+            .overlay(alignment: .bottomLeading) {
+                Image(systemName: "mountain.2.fill")
+                    .font(.title3)
+                    .foregroundStyle(.white.opacity(0.95))
+                    .padding(10)
+            }
 
             Text(item.name)
                 .font(.subheadline.weight(.semibold))
@@ -107,8 +112,14 @@ struct ExplorePlaceCard: View {
                 .font(.caption2)
                 .foregroundStyle(Color.travelBody)
                 .lineLimit(2)
+                .frame(height: 30, alignment: .top)
         }
-        .frame(width: 126)
+        .padding(10)
+        .frame(width: 176, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.75))
+        )
     }
 }
 

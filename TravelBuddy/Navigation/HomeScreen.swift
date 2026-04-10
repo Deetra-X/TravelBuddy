@@ -142,7 +142,7 @@ struct HomeScreen: View {
             weatherViewModel.refreshIfNeeded(from: location)
             nearbyPlacesViewModel.updateNearbyPlaces(
                 currentLocation: location ?? referenceLocation,
-                districtFilter: location == nil ? "Colombo" : nil
+                districtFilter: shouldForceColomboOnly ? "Colombo" : nil
             )
         }
         .safeAreaInset(edge: .bottom) {
@@ -254,13 +254,7 @@ struct HomeScreen: View {
 
     private var allNearbyPlaces: [PlaceCardItem] {
         if !nearbyPlacesViewModel.allPlaces.isEmpty {
-            if shouldForceColomboOnly {
-                return nearbyPlacesViewModel.allPlaces.filter { $0.subtitle.caseInsensitiveCompare("Colombo") == .orderedSame }
-            }
             return nearbyPlacesViewModel.allPlaces
-        }
-        if shouldForceColomboOnly {
-            return sortedPlaces.filter { $0.subtitle.caseInsensitiveCompare("Colombo") == .orderedSame }
         }
         return sortedPlaces
     }
@@ -272,7 +266,9 @@ struct HomeScreen: View {
     }
 
     private var shouldForceColomboOnly: Bool {
-        locationManager.location == nil
+        locationManager.authorizationStatus == .denied
+            || locationManager.authorizationStatus == .restricted
+            || locationManager.location == nil
     }
 
     private var referenceLocation: CLLocation {
