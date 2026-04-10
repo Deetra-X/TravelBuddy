@@ -60,11 +60,6 @@ final class UserLocationManager: NSObject, ObservableObject, CLLocationManagerDe
             return
         }
 
-        guard isWithinSriLanka(bestLocation.coordinate) else {
-            region = sriLankaRegion
-            return
-        }
-
         location = bestLocation
         horizontalAccuracy = bestLocation.horizontalAccuracy
 
@@ -97,9 +92,4 @@ final class UserLocationManager: NSObject, ObservableObject, CLLocationManagerDe
         }
     }
 
-    private func isWithinSriLanka(_ coordinate: CLLocationCoordinate2D) -> Bool {
-        let latitudeRange = 5.7...10.1
-        let longitudeRange = 79.5...82.1
-        return latitudeRange.contains(coordinate.latitude) && longitudeRange.contains(coordinate.longitude)
-    }
 }

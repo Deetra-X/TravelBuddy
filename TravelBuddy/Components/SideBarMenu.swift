@@ -15,7 +15,7 @@ struct SideBarMenu: View {
                 Spacer()
                 Button(action: onClose) {
                     Image(systemName: "xmark")
-                        .font(.headline)
+                        .font(.subheadline)
                         .foregroundStyle(Color.travelTitle)
                 }
                 .buttonStyle(.plain)
@@ -33,7 +33,7 @@ struct SideBarMenu: View {
 
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Deenath")
-                        .font(.headline)
+                        .font(.subheadline)
                     Text("deenath@gmail.com")
                         .font(.subheadline)
                         .foregroundStyle(Color.travelBody)
@@ -50,7 +50,7 @@ struct SideBarMenu: View {
             }
 
             Text("Preferences")
-                .font(.headline)
+                .font(.subheadline)
                 .padding(.top, 4)
 
             menuRow(icon: "location", title: "Location") {
@@ -100,24 +100,25 @@ struct SideBarMenu: View {
             }
 
             Button(action: onLogout) {
-                HStack(spacing: 10) {
+                HStack(spacing: 6) {
                     Image(systemName: "rectangle.portrait.and.arrow.forward")
+                        .font(.caption)
                     Text("Logout")
                 }
-                .font(.headline)
+                .font(.caption)
                 .foregroundStyle(.white)
-                .frame(maxWidth: .infinity)
-                .frame(height: 50)
+                .frame(height: 32)
+                .frame(maxWidth: 110)
                 .background(
-                    RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .fill(Color.travelPrimary)
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.red)
                 )
             }
             .buttonStyle(.plain)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
-        .frame(maxWidth: 320, maxHeight: .infinity, alignment: .topLeading)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.travelBackground)
     }
 
