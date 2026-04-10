@@ -22,7 +22,9 @@ struct HomeScreen: View {
             Color.travelBackground.ignoresSafeArea()
 
             Group {
-                if contentTab == .wishlist {
+                if contentTab == .myTrip {
+                    ManualTripPlannerScreen()
+                } else if contentTab == .wishlist {
                     WishlistScreen(items: $wishlistItems)
                 } else if contentTab == .location {
                     MapScreen(locationManager: locationManager) {
@@ -37,6 +39,8 @@ struct HomeScreen: View {
                             topBar
 
                             homeBanner
+
+                            manualPlanShortcut
 
                             HomeSectionHeader(
                                 title: "Explore Around you",
@@ -232,6 +236,45 @@ struct HomeScreen: View {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .stroke(.white.opacity(0.12), lineWidth: 1)
         )
+    }
+
+    private var manualPlanShortcut: some View {
+        Button {
+            selectedTab = .myTrip
+            contentTab = .myTrip
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "calendar.badge.plus")
+                    .font(.title3)
+                    .foregroundStyle(Color.travelPrimary)
+                    .frame(width: 42, height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.travelPrimary.opacity(0.12))
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Plan your adventure")
+                        .font(.headline)
+                        .foregroundStyle(Color.travelTitle)
+                    Text("Build your trip manually with your own stops")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.travelBody)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.travelPrimary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.9))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var sortedPlaces: [PlaceCardItem] {
