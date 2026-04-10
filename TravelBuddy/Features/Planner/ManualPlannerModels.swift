@@ -58,6 +58,21 @@ enum ManualPlanCategory: String, CaseIterable, Identifiable {
         case .hiddenGems: return "hidden+beach+waterfall"
         }
     }
+
+    var assetName: String {
+        switch self {
+        case .mustVisit: return "must_visit"
+        case .hiking: return "hiking"
+        case .camping: return "camping"
+        case .rafting: return "rafting"
+        case .trailTracking: return "trail_tracking"
+        case .food: return "foods"
+        case .culture: return "culture"
+        case .history: return "history"
+        case .bungee: return "bungie"
+        case .hiddenGems: return "hidden_gems"
+        }
+    }
 }
 
 struct ManualPlanPlace: Identifiable {

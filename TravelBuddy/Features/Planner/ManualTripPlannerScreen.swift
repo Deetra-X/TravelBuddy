@@ -31,7 +31,7 @@ struct ManualTripPlannerScreen: View {
                                     category: category,
                                     isSelected: selectedCategories.contains(category),
                                     isDisabled: isCategoryDisabled(category),
-                                    imageURL: categoryPhotoURL(for: category)
+                                    imageName: category.assetName
                                 ) {
                                     toggleCategory(category)
                                 }
@@ -151,10 +151,6 @@ struct ManualTripPlannerScreen: View {
         selectedCategories.count >= 3 && !selectedCategories.contains(category)
     }
 
-    private func categoryPhotoURL(for category: ManualPlanCategory) -> URL? {
-        URL(string: "https://source.unsplash.com/600x420/?\(category.photoKeyword)")
-    }
-
     private func placeSelectionKey(_ place: ManualPlanPlace) -> String {
         "\(place.category.dbValue)-\(place.name)-\(place.district)"
     }
@@ -183,7 +179,7 @@ private struct ManualPlanCategoryCard: View {
     let category: ManualPlanCategory
     let isSelected: Bool
     let isDisabled: Bool
-    let imageURL: URL?
+    let imageName: String
     var onTap: () -> Void
 
     var body: some View {
@@ -200,22 +196,22 @@ private struct ManualPlanCategoryCard: View {
                         )
                     )
 
-                if let imageURL {
-                    AsyncImage(url: imageURL) { phase in
-                        if let image = phase.image {
-                            image
-                                .resizable()
-                                .scaledToFill()
-                        } else {
-                            Color.clear
-                        }
-                    }
+                if let uiImage = loadLocalImage(named: imageName) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
                 }
 
                 LinearGradient(
-                    colors: [.clear, .black.opacity(0.48)],
+                    colors: [.clear, .black.opacity(0.62)],
                     startPoint: .center,
                     endPoint: .bottom
+                )
+
+                LinearGradient(
+                    colors: [.black.opacity(0.12), .clear],
+                    startPoint: .top,
+                    endPoint: .center
                 )
 
                 HStack(spacing: 8) {
@@ -245,6 +241,38 @@ private struct ManualPlanCategoryCard: View {
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
+    }
+
+    private func loadLocalImage(named name: String) -> UIImage? {
+        let candidates = [
+            name,
+            "\(name).JPG",
+            "\(name).jpg",
+            "Images/\(name).JPG",
+            "Images/\(name).jpg",
+            "Assets/Images/\(name).JPG",
+            "Assets/Images/\(name).jpg"
+        ]
+
+        for candidate in candidates {
+            if let image = UIImage(named: candidate) {
+                return image
+            }
+        }
+
+        let searchDirectories: [String?] = [nil, "Images", "Assets", "Assets/Images"]
+        let extensions = ["JPG", "jpg", "JPEG", "jpeg"]
+
+        for directory in searchDirectories {
+            for fileExtension in extensions {
+                if let path = Bundle.main.path(forResource: name, ofType: fileExtension, inDirectory: directory),
+                   let image = UIImage(contentsOfFile: path) {
+                    return image
+                }
+            }
+        }
+
+        return nil
     }
 }
 
