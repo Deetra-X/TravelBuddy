@@ -63,15 +63,7 @@ struct ManualTripPlannerScreen: View {
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
                                 ForEach(selectedCategoriesSorted, id: \.id) { category in
-                                    Text(category.rawValue)
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(.white)
-                                        .padding(.horizontal, 10)
-                                        .padding(.vertical, 7)
-                                        .background(
-                                            Capsule(style: .continuous)
-                                                .fill(Color.travelPrimary)
-                                        )
+                                    CategoryNameIndicator(category: category, isHighlighted: true)
                                 }
                             }
                             .padding(.vertical, 2)
@@ -140,10 +132,12 @@ struct ManualTripPlannerScreen: View {
     }
 
     private func toggleCategory(_ category: ManualPlanCategory) {
-        if selectedCategories.contains(category) {
-            selectedCategories.remove(category)
-        } else if selectedCategories.count < 3 {
-            selectedCategories.insert(category)
+        withAnimation(.easeInOut(duration: 0.22)) {
+            if selectedCategories.contains(category) {
+                selectedCategories.remove(category)
+            } else if selectedCategories.count < 3 {
+                selectedCategories.insert(category)
+            }
         }
     }
 
@@ -190,7 +184,7 @@ private struct ManualPlanCategoryCard: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(
                         LinearGradient(
-                            colors: [Color.travelPrimary.opacity(0.9), Color.teal.opacity(0.7)],
+                            colors: [Color.travelPrimary.opacity(0.28), Color.teal.opacity(0.22)],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         )
@@ -200,28 +194,14 @@ private struct ManualPlanCategoryCard: View {
                     Image(uiImage: uiImage)
                         .resizable()
                         .scaledToFill()
+                        .opacity(0.96)
                 }
 
                 LinearGradient(
-                    colors: [.clear, .black.opacity(0.62)],
+                    colors: [.clear, .black.opacity(0.5)],
                     startPoint: .center,
                     endPoint: .bottom
                 )
-
-                LinearGradient(
-                    colors: [.black.opacity(0.12), .clear],
-                    startPoint: .top,
-                    endPoint: .center
-                )
-
-                HStack(spacing: 8) {
-                    Image(systemName: category.icon)
-                        .font(.caption.weight(.semibold))
-                    Text(category.rawValue)
-                        .font(.subheadline.weight(.bold))
-                }
-                .foregroundStyle(.white)
-                .padding(10)
 
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
@@ -233,11 +213,17 @@ private struct ManualPlanCategoryCard: View {
             }
             .frame(height: 128)
             .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(alignment: .bottomLeading) {
+                CategoryNameIndicator(category: category)
+                    .padding(10)
+            }
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(isSelected ? Color.travelPrimary : .white.opacity(0.35), lineWidth: isSelected ? 2 : 1)
             )
             .opacity(isDisabled ? 0.42 : 1)
+            .scaleEffect(isSelected ? 1.03 : 1.0)
+            .animation(.easeInOut(duration: 0.22), value: isSelected)
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -273,6 +259,34 @@ private struct ManualPlanCategoryCard: View {
         }
 
         return nil
+    }
+}
+
+private struct CategoryNameIndicator: View {
+    let category: ManualPlanCategory
+    var isHighlighted: Bool = false
+
+    var body: some View {
+        HStack(spacing: 7) {
+            Image(systemName: category.icon)
+                .font(.caption2.weight(.semibold))
+
+            Text(category.rawValue)
+                .font(.caption.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.85)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 12)
+        .padding(.vertical, 7)
+        .background(
+            Capsule(style: .continuous)
+                .fill(isHighlighted ? Color.travelPrimary.opacity(0.9) : .black.opacity(0.52))
+                .overlay(
+                    Capsule(style: .continuous)
+                        .stroke(.white.opacity(isHighlighted ? 0.4 : 0.65), lineWidth: 1)
+                )
+        )
     }
 }
 
