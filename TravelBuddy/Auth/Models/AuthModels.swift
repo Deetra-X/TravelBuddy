@@ -1,7 +1,7 @@
 import Foundation
 
 struct AuthUser: Equatable {
-    let id: UUID
+    let id: String
     let name: String
     let email: String
 }
@@ -12,6 +12,8 @@ enum AuthError: LocalizedError {
     case invalidPassword
     case invalidOTP
     case passwordsDoNotMatch
+    case configurationMissing
+    case network(String)
     case generic(String)
 
     var errorDescription: String? {
@@ -26,6 +28,10 @@ enum AuthError: LocalizedError {
             return "Invalid OTP code. Please try again."
         case .passwordsDoNotMatch:
             return "Passwords do not match."
+        case .configurationMissing:
+            return "Supabase is not configured. Add your project URL and anon key in SupabaseConfig."
+        case .network(let message):
+            return message
         case .generic(let message):
             return message
         }

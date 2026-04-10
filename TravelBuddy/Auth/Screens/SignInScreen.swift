@@ -9,6 +9,12 @@ struct SignInScreen: View {
     @State private var email = ""
     @State private var password = ""
 
+    private var canSubmit: Bool {
+        email.trimmingCharacters(in: .whitespacesAndNewlines).contains("@")
+        && password.count >= 8
+        && !viewModel.isLoading
+    }
+
     var body: some View {
         ZStack {
             Color.travelBackground.ignoresSafeArea()
@@ -29,6 +35,10 @@ struct SignInScreen: View {
                         AuthErrorBanner(message: message)
                     }
 
+                    if let message = viewModel.successMessage {
+                        AuthSuccessBanner(message: message)
+                    }
+
                     AuthInputField(title: "Email", text: $email, keyboardType: .emailAddress)
 
                     AuthSecureInputField(title: "Password", text: $password)
@@ -44,13 +54,21 @@ struct SignInScreen: View {
                     }
 
                     AuthPrimaryButton(title: "Sign in", isLoading: viewModel.isLoading) {
+                        guard canSubmit else { return }
+
+                        let normalizedEmail = email
+                            .trimmingCharacters(in: .whitespacesAndNewlines)
+                            .lowercased()
+
                         Task {
-                            let success = await viewModel.login(email: email, password: password)
+                            let success = await viewModel.login(email: normalizedEmail, password: password)
                             if success {
                                 onLoginSuccess()
                             }
                         }
                     }
+                    .opacity(canSubmit ? 1 : 0.7)
+                    .disabled(!canSubmit)
 
                     HStack {
                         Rectangle()

@@ -47,6 +47,10 @@ struct SignUpScreen: View {
                         AuthErrorBanner(message: message)
                     }
 
+                    if let message = viewModel.successMessage {
+                        AuthSuccessBanner(message: message)
+                    }
+
                     AuthInputField(title: "Your Name", text: $name)
 
                     VStack(alignment: .leading, spacing: 6) {
@@ -78,10 +82,14 @@ struct SignUpScreen: View {
 
                     AuthPrimaryButton(title: "Sign up", isLoading: viewModel.isLoading) {
                         Task {
-                            let success = await viewModel.register(name: name, email: email, password: password)
-                            if success {
-                                onSignUpSuccess()
-                            }
+                            _ = await viewModel.register(name: name, email: email, password: password)
+                        }
+                    }
+
+                    if viewModel.successMessage != nil {
+                        AuthPrimaryButton(title: "Go to Sign in", isLoading: false) {
+                            viewModel.clearError()
+                            dismiss()
                         }
                     }
 

@@ -115,3 +115,20 @@ struct AuthErrorBanner: View {
             )
     }
 }
+
+struct AuthSuccessBanner: View {
+    let message: String
+
+    var body: some View {
+        Text(message)
+            .font(.footnote)
+            .foregroundStyle(.green)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 10)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Color.green.opacity(0.12))
+            )
+    }
+}

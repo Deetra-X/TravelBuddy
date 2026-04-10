@@ -5,21 +5,26 @@ import Combine
 final class AuthViewModel: ObservableObject {
     @Published var isLoading = false
     @Published var errorMessage: String?
+    @Published var successMessage: String?
     @Published var currentUser: AuthUser?
     @Published var resetContext = PasswordResetContext()
 
     private let service: AuthServiceProtocol
+    private let sessionManager: SessionManagerProtocol?
 
-    init(service: AuthServiceProtocol) {
+    init(service: AuthServiceProtocol, sessionManager: SessionManagerProtocol? = nil) {
         self.service = service
+        self.sessionManager = sessionManager
     }
 
     convenience init() {
-        self.init(service: AuthService())
+        let sessionManager = SessionManager()
+        self.init(service: AuthService(sessionManager: sessionManager), sessionManager: sessionManager)
     }
 
     func clearError() {
         errorMessage = nil
+        successMessage = nil
     }
 
     func login(email: String, password: String) async -> Bool {
@@ -42,10 +47,17 @@ final class AuthViewModel: ObservableObject {
         defer { isLoading = false }
 
         do {
-            currentUser = try await service.register(name: name, email: email, password: password)
+            _ = try await service.register(name: name, email: email, password: password)
+            successMessage = "Account is created."
             return true
         } catch {
-            errorMessage = readable(error)
+            let message = readable(error)
+            if message.lowercased().contains("account created") {
+                successMessage = "Account is created."
+                return true
+            }
+
+            errorMessage = message
             return false
         }
     }
@@ -60,6 +72,21 @@ final class AuthViewModel: ObservableObject {
             resetContext.email = email
             resetContext.requestId = requestId
             resetContext.isOTPVerified = false
+            return true
+        } catch {
+            errorMessage = readable(error)
+            return false
+        }
+    }
+
+    func resendConfirmationEmail(email: String) async -> Bool {
+        clearError()
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            try await service.resendConfirmationEmail(email: email)
+            successMessage = "Verification email sent. Please check your inbox."
             return true
         } catch {
             errorMessage = readable(error)
@@ -102,14 +129,27 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    func signOut() {
+    func logout() async {
+        isLoading = true
+        defer { isLoading = false }
+        
         currentUser = nil
+        try? await service.logout()
+        try? await sessionManager?.clearSession()
     }
 
     private func readable(_ error: Error) -> String {
         if let localized = error as? LocalizedError {
-            return localized.errorDescription ?? "Something went wrong."
+            let message = localized.errorDescription ?? "Something went wrong."
+            if message.lowercased().contains("email not confirmed") {
+                return "Email confirmation is enabled in Supabase. Disable it in Authentication > Providers > Email to allow immediate login."
+            }
+            return message
         }
-        return error.localizedDescription
+        let message = error.localizedDescription
+        if message.lowercased().contains("email not confirmed") {
+            return "Email confirmation is enabled in Supabase. Disable it in Authentication > Providers > Email to allow immediate login."
+        }
+        return message
     }
 }

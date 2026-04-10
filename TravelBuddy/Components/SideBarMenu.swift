@@ -3,9 +3,11 @@ import SwiftUI
 struct SideBarMenu: View {
     var onClose: () -> Void
     var onLogout: () -> Void
+    var onAdvancedSettings: () -> Void
 
     @State private var locationEnabled = true
     @State private var pushEnabled = false
+    @State private var selectedLanguage = "English"
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -58,8 +60,25 @@ struct SideBarMenu: View {
             }
 
             menuRow(icon: "globe", title: "Language") {
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(Color.travelTitle)
+                Menu {
+                    Button("English") {
+                        selectedLanguage = "English"
+                    }
+                    Button("Spanish") {
+                        selectedLanguage = "Spanish"
+                    }
+                    Button("French") {
+                        selectedLanguage = "French"
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(selectedLanguage)
+                            .font(.subheadline)
+                            .foregroundStyle(Color.travelBody)
+                        Image(systemName: "chevron.right")
+                            .foregroundStyle(Color.travelTitle)
+                    }
+                }
             }
 
             menuRow(icon: "bell", title: "Push Notifications") {
@@ -70,9 +89,14 @@ struct SideBarMenu: View {
 
             Spacer()
 
-            menuRow(icon: "gearshape", title: "Settings") {
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(Color.travelTitle)
+            menuRow(icon: "gearshape.2", title: "Advanced Settings") {
+                Button {
+                    onAdvancedSettings()
+                } label: {
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(Color.travelTitle)
+                }
+                .buttonStyle(.plain)
             }
 
             Button(action: onLogout) {

@@ -9,6 +9,7 @@ struct HomeScreen: View {
     @State private var selectedTab: HomeTab = .home
     @State private var contentTab: HomeTab = .home
     @State private var isMenuOpen = false
+    @State private var showAdvancedSettings = false
     @State private var wishlistItems: [WishlistPlaceItem] = []
 
     var body: some View {
@@ -89,13 +90,24 @@ struct HomeScreen: View {
                                 isMenuOpen = false
                             }
                         },
-                        onLogout: onLogout
+                        onLogout: onLogout,
+                        onAdvancedSettings: {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                isMenuOpen = false
+                            }
+                            showAdvancedSettings = true
+                        }
                     )
 
                     Spacer()
                 }
                 .transition(.move(edge: .leading))
                 .zIndex(2)
+            }
+        }
+        .fullScreenCover(isPresented: $showAdvancedSettings) {
+            AdvancedSettingsScreen {
+                showAdvancedSettings = false
             }
         }
         .onAppear {
