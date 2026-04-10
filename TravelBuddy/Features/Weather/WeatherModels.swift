@@ -10,7 +10,7 @@ struct WeatherSnapshot: Equatable {
     }
 
     var description: String {
-        isRainy ? "Take an umbrella" : "Perfect for hiking"
+        isRainy ? "Take an umbrella" : "Perfect for party"
     }
 
     var backgroundImageName: String {

@@ -5,8 +5,8 @@ import Combine
 @MainActor
 final class WeatherViewModel: ObservableObject {
     @Published private(set) var weather: WeatherSnapshot = WeatherSnapshot(
-        cityName: "Locating...",
-        temperatureCelsius: 0,
+        cityName: "Colombo",
+        temperatureCelsius: 34,
         isRainy: false
     )
     @Published private(set) var isLoading: Bool = false
@@ -19,7 +19,10 @@ final class WeatherViewModel: ObservableObject {
     }
 
     func refreshIfNeeded(from location: CLLocation?) {
-        guard let location else { return }
+        guard let location else {
+            setColomboFallbackWeather()
+            return
+        }
 
         if let lastRequestedLocation,
            location.distance(from: lastRequestedLocation) < 1000 {
@@ -39,6 +42,15 @@ final class WeatherViewModel: ObservableObject {
         do {
             weather = try await service.fetchCurrentWeather(latitude: latitude, longitude: longitude)
         } catch {
+            setColomboFallbackWeather()
         }
+    }
+
+    func setColomboFallbackWeather() {
+        weather = WeatherSnapshot(
+            cityName: "Colombo",
+            temperatureCelsius: 34,
+            isRainy: false
+        )
     }
 }

@@ -15,6 +15,7 @@ extension Color {
 struct HomeSectionHeader: View {
     let title: String
     var trailingText: String? = nil
+    var onTrailingTap: (() -> Void)? = nil
 
     var body: some View {
         HStack {
@@ -25,9 +26,18 @@ struct HomeSectionHeader: View {
             Spacer()
 
             if let trailingText {
-                Text(trailingText)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color.travelPrimary)
+                if let onTrailingTap {
+                    Button(action: onTrailingTap) {
+                        Text(trailingText)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color.travelPrimary)
+                    }
+                    .buttonStyle(.plain)
+                } else {
+                    Text(trailingText)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color.travelPrimary)
+                }
             }
         }
     }
@@ -39,14 +49,30 @@ struct ExplorePlaceCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(
-                    LinearGradient(
-                        colors: [Color(hex: item.accentHex), Color.travelPrimary.opacity(0.45)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            ZStack {
+                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                    .fill(
+                        LinearGradient(
+                            colors: [Color(hex: item.accentHex), Color.travelPrimary.opacity(0.45)],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
+
+                if let imageURL = item.imageURL {
+                    AsyncImage(url: imageURL) { phase in
+                        if let image = phase.image {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        } else {
+                            Color.clear
+                        }
+                    }
+                    .opacity(0.42)
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
                 .frame(width: 126, height: 130)
                 .overlay(alignment: .topTrailing) {
                     HStack(spacing: 3) {
@@ -73,9 +99,14 @@ struct ExplorePlaceCard: View {
                 .foregroundStyle(Color.travelTitle)
                 .lineLimit(1)
 
-            Text("\(distanceText) • \(item.subtitle)")
+            Text(distanceText)
                 .font(.caption)
                 .foregroundStyle(Color.travelBody)
+
+            Text(item.description)
+                .font(.caption2)
+                .foregroundStyle(Color.travelBody)
+                .lineLimit(2)
         }
         .frame(width: 126)
     }

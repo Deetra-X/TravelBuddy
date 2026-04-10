@@ -2,12 +2,69 @@ import Foundation
 import CoreLocation
 
 struct PlaceCardItem: Identifiable {
-    let id = UUID()
+    let id: String
     let name: String
+    let description: String
     let subtitle: String
     let rating: Double
     let coordinate: CLLocationCoordinate2D
     let accentHex: String
+    let imageURL: URL?
+
+    init(
+        id: String = UUID().uuidString,
+        name: String,
+        description: String,
+        subtitle: String,
+        rating: Double,
+        coordinate: CLLocationCoordinate2D,
+        accentHex: String,
+        imageURL: URL? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.description = description
+        self.subtitle = subtitle
+        self.rating = rating
+        self.coordinate = coordinate
+        self.accentHex = accentHex
+        self.imageURL = imageURL
+    }
+}
+
+struct CloudPlaceRecord: Decodable {
+    let id: String
+    let district: String
+    let name: String
+    let description: String
+    let rating: Double
+    let latitude: Double
+    let longitude: Double
+    let imageURLString: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case district
+        case name
+        case description
+        case rating
+        case latitude
+        case longitude
+        case imageURLString = "image_url"
+    }
+
+    func toPlaceCardItem() -> PlaceCardItem {
+        PlaceCardItem(
+            id: id,
+            name: name,
+            description: description,
+            subtitle: district,
+            rating: rating,
+            coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            accentHex: "0D47A1",
+            imageURL: imageURLString.flatMap(URL.init(string:))
+        )
+    }
 }
 
 struct QuickPlanItem: Identifiable {
@@ -35,6 +92,7 @@ enum HomeMockData {
     static let explorePlaces: [PlaceCardItem] = [
         PlaceCardItem(
             name: "Nine Arch Bridge",
+            description: "Iconic railway bridge surrounded by greenery.",
             subtitle: "Ella",
             rating: 4.9,
             coordinate: CLLocationCoordinate2D(latitude: 6.8756, longitude: 81.0607),
@@ -42,6 +100,7 @@ enum HomeMockData {
         ),
         PlaceCardItem(
             name: "Alpha Mosque",
+            description: "Historic urban landmark in Colombo.",
             subtitle: "Colombo",
             rating: 4.7,
             coordinate: CLLocationCoordinate2D(latitude: 6.9344, longitude: 79.8528),
@@ -49,6 +108,7 @@ enum HomeMockData {
         ),
         PlaceCardItem(
             name: "Olu Ella",
+            description: "Scenic waterfall destination in hill country.",
             subtitle: "Badulla",
             rating: 4.8,
             coordinate: CLLocationCoordinate2D(latitude: 6.9934, longitude: 81.0550),
@@ -56,6 +116,7 @@ enum HomeMockData {
         ),
         PlaceCardItem(
             name: "Kothmale",
+            description: "Popular scenic area with mountain views.",
             subtitle: "Nuwara Eliya",
             rating: 4.6,
             coordinate: CLLocationCoordinate2D(latitude: 7.0258, longitude: 80.6002),

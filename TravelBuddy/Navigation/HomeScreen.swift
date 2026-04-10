@@ -7,11 +7,15 @@ struct HomeScreen: View {
 
     @StateObject private var locationManager = UserLocationManager()
     @StateObject private var weatherViewModel = WeatherViewModel()
+    @StateObject private var nearbyPlacesViewModel = NearbyPlacesViewModel()
     @State private var selectedTab: HomeTab = .home
     @State private var contentTab: HomeTab = .home
     @State private var isMenuOpen = false
     @State private var showAdvancedSettings = false
+    @State private var showAllNearbyPlaces = false
     @State private var wishlistItems: [WishlistPlaceItem] = []
+
+    private let fallbackCoordinate = CLLocationCoordinate2D(latitude: 6.906555, longitude: 79.87071)
 
     var body: some View {
         ZStack {
@@ -34,11 +38,17 @@ struct HomeScreen: View {
 
                             homeBanner
 
-                            HomeSectionHeader(title: "Explore Around you", trailingText: "View all")
+                            HomeSectionHeader(
+                                title: "Explore Around you",
+                                trailingText: "View all",
+                                onTrailingTap: {
+                                    showAllNearbyPlaces = true
+                                }
+                            )
 
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 12) {
-                                    ForEach(sortedPlaces) { item in
+                                    ForEach(nearbyPlacesToShow) { item in
                                         ExplorePlaceCard(item: item, distanceText: distanceText(for: item.coordinate))
                                     }
                                 }
@@ -111,12 +121,29 @@ struct HomeScreen: View {
                 showAdvancedSettings = false
             }
         }
+        .fullScreenCover(isPresented: $showAllNearbyPlaces) {
+            NearbyPlacesListScreen(
+                items: allNearbyPlaces,
+                currentLocation: referenceLocation,
+                onClose: {
+                    showAllNearbyPlaces = false
+                }
+            )
+        }
         .onAppear {
             locationManager.requestAndStart()
             weatherViewModel.refreshIfNeeded(from: locationManager.location)
+            nearbyPlacesViewModel.loadPlacesIfNeeded(
+                currentLocation: referenceLocation,
+                districtFilter: shouldForceColomboOnly ? "Colombo" : nil
+            )
         }
         .onReceive(locationManager.$location) { location in
             weatherViewModel.refreshIfNeeded(from: location)
+            nearbyPlacesViewModel.updateNearbyPlaces(
+                currentLocation: location ?? referenceLocation,
+                districtFilter: location == nil ? "Colombo" : nil
+            )
         }
         .safeAreaInset(edge: .bottom) {
             Botum_Navigation(selectedTab: selectedTab) { tab in
@@ -182,9 +209,7 @@ struct HomeScreen: View {
                     )
                 )
 
-            if weatherViewModel.weather.cityName != "Locating..." {
-                WeatherBannerBackground(imageName: weatherViewModel.weather.backgroundImageName)
-            }
+            WeatherBannerBackground(imageName: weatherViewModel.weather.backgroundImageName)
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("• Today in \(weatherViewModel.weather.cityName)")
@@ -210,25 +235,51 @@ struct HomeScreen: View {
     }
 
     private var sortedPlaces: [PlaceCardItem] {
-        guard let currentLocation = locationManager.location else {
-            return HomeMockData.explorePlaces
-        }
-
         return HomeMockData.explorePlaces.sorted { left, right in
-            let leftDistance = currentLocation.distance(from: CLLocation(latitude: left.coordinate.latitude, longitude: left.coordinate.longitude))
-            let rightDistance = currentLocation.distance(from: CLLocation(latitude: right.coordinate.latitude, longitude: right.coordinate.longitude))
+            let leftDistance = referenceLocation.distance(from: CLLocation(latitude: left.coordinate.latitude, longitude: left.coordinate.longitude))
+            let rightDistance = referenceLocation.distance(from: CLLocation(latitude: right.coordinate.latitude, longitude: right.coordinate.longitude))
             return leftDistance < rightDistance
         }
     }
 
-    private func distanceText(for coordinate: CLLocationCoordinate2D) -> String {
-        guard let currentLocation = locationManager.location else {
-            return "-- km"
+    private var nearbyPlacesToShow: [PlaceCardItem] {
+        if !nearbyPlacesViewModel.nearbyPlaces.isEmpty {
+            return Array(nearbyPlacesViewModel.nearbyPlaces.prefix(4))
         }
+        if shouldForceColomboOnly {
+            return Array(sortedPlaces.filter { $0.subtitle.caseInsensitiveCompare("Colombo") == .orderedSame }.prefix(4))
+        }
+        return Array(sortedPlaces.prefix(4))
+    }
 
+    private var allNearbyPlaces: [PlaceCardItem] {
+        if !nearbyPlacesViewModel.allPlaces.isEmpty {
+            if shouldForceColomboOnly {
+                return nearbyPlacesViewModel.allPlaces.filter { $0.subtitle.caseInsensitiveCompare("Colombo") == .orderedSame }
+            }
+            return nearbyPlacesViewModel.allPlaces
+        }
+        if shouldForceColomboOnly {
+            return sortedPlaces.filter { $0.subtitle.caseInsensitiveCompare("Colombo") == .orderedSame }
+        }
+        return sortedPlaces
+    }
+
+    private func distanceText(for coordinate: CLLocationCoordinate2D) -> String {
         let placeLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
-        let distanceInKm = currentLocation.distance(from: placeLocation) / 1000
+        let distanceInKm = referenceLocation.distance(from: placeLocation) / 1000
         return String(format: "%.1f km away", distanceInKm)
+    }
+
+    private var shouldForceColomboOnly: Bool {
+        locationManager.location == nil
+    }
+
+    private var referenceLocation: CLLocation {
+        if let location = locationManager.location {
+            return location
+        }
+        return CLLocation(latitude: fallbackCoordinate.latitude, longitude: fallbackCoordinate.longitude)
     }
 }
 
