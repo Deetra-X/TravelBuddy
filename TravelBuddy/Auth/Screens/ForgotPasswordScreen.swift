@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ForgotPasswordScreen: View {
     @ObservedObject var viewModel: AuthViewModel
@@ -41,6 +42,8 @@ struct ForgotPasswordScreen: View {
                 .font(.footnote)
                 .foregroundStyle(Color.travelTitle.opacity(0.85))
 
+                Spacer()
+
                 AuthPrimaryButton(title: "Send Code", isLoading: viewModel.isLoading) {
                     Task {
                         let success = await viewModel.requestPasswordResetCode(email: email)
@@ -61,8 +64,6 @@ struct ForgotPasswordScreen: View {
                     .foregroundStyle(Color.travelTitle)
                 }
                 .buttonStyle(.plain)
-
-                Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 20)
@@ -72,18 +73,37 @@ struct ForgotPasswordScreen: View {
 
     private var topArt: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.65))
-                .frame(height: 160)
-
-            Image(systemName: "person.text.rectangle.fill")
-                .font(.system(size: 64))
-                .foregroundStyle(Color(red: 0.47, green: 0.78, blue: 0.83))
-
-            Image(systemName: "person.fill")
-                .font(.system(size: 28))
-                .foregroundStyle(.white)
-                .offset(x: -18, y: -14)
+            Group {
+                if let uiImage = loadForgotPasswordHeaderImage() {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 200)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 220)
+    }
+
+    private func loadForgotPasswordHeaderImage() -> UIImage? {
+        let candidates: [(String, String?, String?)] = [
+            ("Forgot_password-r", "png", nil),
+            ("Forgot_password-r.png", nil, nil),
+            ("Forgot_password-r", "png", "Icons"),
+            ("Forgot_password-r.png", nil, "Icons"),
+            ("Assets/Icons/Forgot_password-r", "png", nil),
+            ("Assets/Icons/Forgot_password-r.png", nil, nil)
+        ]
+
+        for (name, ext, directory) in candidates {
+            if let path = Bundle.main.path(forResource: name, ofType: ext, inDirectory: directory),
+               let image = UIImage(contentsOfFile: path) {
+                return image
+            }
+        }
+
+        return UIImage(named: "Forgot_password-r") ?? UIImage(named: "Forgot_password-r.png")
     }
 }

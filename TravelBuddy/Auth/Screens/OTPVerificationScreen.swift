@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct OTPVerificationScreen: View {
     @ObservedObject var viewModel: AuthViewModel
@@ -29,6 +30,8 @@ struct OTPVerificationScreen: View {
 
                 AuthInputField(title: "OTP", text: $otpCode, keyboardType: .numberPad)
 
+                Spacer()
+
                 AuthPrimaryButton(title: "Verify OTP", isLoading: viewModel.isLoading) {
                     Task {
                         let success = await viewModel.verifyPasswordResetCode(code: otpCode)
@@ -37,8 +40,6 @@ struct OTPVerificationScreen: View {
                         }
                     }
                 }
-
-                Spacer()
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 20)
@@ -59,13 +60,37 @@ struct OTPVerificationScreen: View {
 
     private var topArt: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.65))
-                .frame(height: 160)
-
-            Image(systemName: "checkmark.shield.fill")
-                .font(.system(size: 62))
-                .foregroundStyle(Color(red: 0.47, green: 0.78, blue: 0.83))
+            Group {
+                if let uiImage = loadVerificationHeaderImage() {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 200)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 220)
+    }
+
+    private func loadVerificationHeaderImage() -> UIImage? {
+        let candidates: [(String, String?, String?)] = [
+            ("verifi", "png", nil),
+            ("verifi.png", nil, nil),
+            ("verifi", "png", "Icons"),
+            ("verifi.png", nil, "Icons"),
+            ("Assets/Icons/verifi", "png", nil),
+            ("Assets/Icons/verifi.png", nil, nil)
+        ]
+
+        for (name, ext, directory) in candidates {
+            if let path = Bundle.main.path(forResource: name, ofType: ext, inDirectory: directory),
+               let image = UIImage(contentsOfFile: path) {
+                return image
+            }
+        }
+
+        return UIImage(named: "verifi") ?? UIImage(named: "verifi.png")
     }
 }
