@@ -188,13 +188,15 @@ struct HomeScreen: View {
 
             Button {
                 withAnimation(.easeInOut(duration: 0.2)) {
-                    isMenuOpen = true
+                    isMenuOpen = false
+                    selectedTab = .profile
+                    contentTab = .profile
                 }
             } label: {
                 Image(systemName: "person.fill")
                     .font(.subheadline)
                     .foregroundStyle(Color.travelTitle)
-                    .frame(width: 34, height: 34)
+                    .frame(width: 40, height: 40)
                     .background(Circle().fill(.white.opacity(0.85)))
             }
             .buttonStyle(.plain)

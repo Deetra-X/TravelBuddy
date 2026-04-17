@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SignUpScreen: View {
     @ObservedObject var viewModel: AuthViewModel
@@ -143,29 +144,57 @@ struct SignUpScreen: View {
 
     private var topArt: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Color.white.opacity(0.65))
-                .frame(height: 160)
+            Group {
+                if let uiImage = loadSignUpHeaderImage() {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(height: 200)
+                } else {
+                    HStack(spacing: 24) {
+                        Image(systemName: "person.fill")
+                            .font(.system(size: 42))
+                            .foregroundStyle(Color(red: 0.95, green: 0.57, blue: 0.62))
 
-            HStack(spacing: 24) {
-                Image(systemName: "person.fill")
-                    .font(.system(size: 42))
-                    .foregroundStyle(Color(red: 0.95, green: 0.57, blue: 0.62))
+                        Image(systemName: "person.fill.badge.plus")
+                            .font(.system(size: 44))
+                            .foregroundStyle(Color(red: 0.26, green: 0.58, blue: 0.89))
+                    }
 
-                Image(systemName: "person.fill.badge.plus")
-                    .font(.system(size: 44))
-                    .foregroundStyle(Color(red: 0.26, green: 0.58, blue: 0.89))
+                    Image(systemName: "location.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Color(red: 0.97, green: 0.52, blue: 0.44))
+                        .offset(x: -94, y: -52)
+
+                    Image(systemName: "location.fill")
+                        .font(.subheadline)
+                        .foregroundStyle(Color(red: 0.48, green: 0.40, blue: 0.89))
+                        .offset(x: 94, y: 50)
+                }
             }
-
-            Image(systemName: "location.fill")
-                .font(.subheadline)
-                .foregroundStyle(Color(red: 0.97, green: 0.52, blue: 0.44))
-                .offset(x: -94, y: -52)
-
-            Image(systemName: "location.fill")
-                .font(.subheadline)
-                .foregroundStyle(Color(red: 0.48, green: 0.40, blue: 0.89))
-                .offset(x: 94, y: 50)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
+        .frame(maxWidth: .infinity)
+        .frame(height: 220)
+    }
+
+    private func loadSignUpHeaderImage() -> UIImage? {
+        let candidates: [(String, String?, String?)] = [
+            ("sign_up", "png", nil),
+            ("sign_up.png", nil, nil),
+            ("sign_up", "png", "Icons"),
+            ("sign_up.png", nil, "Icons"),
+            ("Assets/Icons/sign_up", "png", nil),
+            ("Assets/Icons/sign_up.png", nil, nil)
+        ]
+
+        for (name, ext, directory) in candidates {
+            if let path = Bundle.main.path(forResource: name, ofType: ext, inDirectory: directory),
+               let image = UIImage(contentsOfFile: path) {
+                return image
+            }
+        }
+
+        return UIImage(named: "sign_up") ?? UIImage(named: "sign_up.png")
     }
 }

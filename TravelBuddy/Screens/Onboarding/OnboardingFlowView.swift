@@ -9,9 +9,14 @@ struct OnboardingFlowView: View {
         Group {
             switch page {
             case .welcome:
-                WelcomeScreen {
-                    onTemporaryHome()
-                }
+                WelcomeScreen(
+                    onTour: {
+                        page = .introOne
+                    },
+                    onTemporaryGoHome: {
+                        onTemporaryHome()
+                    }
+                )
             case .introOne:
                 IntroOneScreen(
                     onSkip: { page = .introThree },
@@ -30,15 +35,6 @@ struct OnboardingFlowView: View {
                         onCompleted()
                     }
                 )
-            }
-        }
-        .onAppear {
-            if page == .welcome {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 1.1) {
-                    if page == .welcome {
-                        page = .introOne
-                    }
-                }
             }
         }
     }

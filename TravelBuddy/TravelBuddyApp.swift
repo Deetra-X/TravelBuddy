@@ -12,6 +12,7 @@ struct TravelBuddyApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(\.font, .system(size: 17, weight: .regular, design: .default))
         }
     }
 }

@@ -454,8 +454,14 @@ final class PlaceDetailsViewModel: ObservableObject {
 }
 
 struct PlaceDetailsScreen: View {
+    private enum PlaceContentTab {
+        case location
+        case weather
+    }
+
     @EnvironmentObject private var sessionManager: SessionManager
     @StateObject private var viewModel: PlaceDetailsViewModel
+    @State private var selectedTab: PlaceContentTab = .location
 
     init(
         placeName: String,
@@ -511,113 +517,12 @@ struct PlaceDetailsScreen: View {
                     .buttonStyle(.plain)
                 }
 
-                Text("Description")
-                    .font(.headline)
-                    .foregroundStyle(Color.travelTitle)
+                tabBar
 
-                Text(viewModel.place.description)
-                    .font(.body)
-                    .foregroundStyle(Color.travelBody)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                destinationWeatherSection
-
-                Divider()
-
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Review Summary")
-                        .font(.headline)
-                        .foregroundStyle(Color.travelTitle)
-
-                    HStack(spacing: 8) {
-                        Text(String(format: "%.1f", viewModel.computedRating))
-                            .font(.title3.weight(.bold))
-                            .foregroundStyle(Color.travelTitle)
-
-                        Image(systemName: "star.fill")
-                            .foregroundStyle(.yellow)
-
-                        Text("(\(viewModel.reviews.count) reviews)")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.travelBody)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Your Review")
-                        .font(.headline)
-                        .foregroundStyle(Color.travelTitle)
-
-                    Stepper(value: $viewModel.reviewRating, in: 1...5, step: 1) {
-                        Text("Rating: \(Int(viewModel.reviewRating))/5")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.travelBody)
-                    }
-
-                    TextField("Write your review", text: $viewModel.reviewText, axis: .vertical)
-                        .lineLimit(3...5)
-                        .padding(10)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.white.opacity(0.92))
-                        )
-
-                    Button {
-                        Task {
-                            await viewModel.submitReview(session: sessionManager.currentSession)
-                        }
-                    } label: {
-                        Text(viewModel.isSubmittingReview ? "Submitting..." : "Add Review")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Color.travelPrimary)
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(viewModel.isSubmittingReview)
-                    .opacity(viewModel.isSubmittingReview ? 0.65 : 1)
-                }
-
-                if viewModel.reviews.isEmpty {
-                    Text("No reviews yet.")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.travelBody)
+                if selectedTab == .location {
+                    locationContent
                 } else {
-                    VStack(spacing: 10) {
-                        ForEach(viewModel.reviews) { review in
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text(review.reviewerName)
-                                        .font(.subheadline.weight(.semibold))
-                                        .foregroundStyle(Color.travelTitle)
-
-                                    Spacer()
-
-                                    Text(String(format: "%.1f ★", review.rating))
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Color.travelPrimary)
-                                }
-
-                                Text(review.comment)
-                                    .font(.subheadline)
-                                    .foregroundStyle(Color.travelBody)
-
-                                Text(review.createdAt.formatted(date: .abbreviated, time: .omitted))
-                                    .font(.caption)
-                                    .foregroundStyle(Color.travelBody.opacity(0.75))
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Color.white.opacity(0.9))
-                            )
-                        }
-                    }
+                    destinationWeatherSection
                 }
             }
             .padding(16)
@@ -639,6 +544,153 @@ struct PlaceDetailsScreen: View {
                     .padding(.bottom, 14)
             }
         }
+        .onChange(of: selectedTab) { _, tab in
+            if tab == .weather, viewModel.destinationWeather == nil {
+                Task {
+                    await viewModel.refreshDestinationWeather()
+                }
+            }
+        }
+    }
+
+    private var locationContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Description")
+                .font(.headline)
+                .foregroundStyle(Color.travelTitle)
+
+            Text(viewModel.place.description)
+                .font(.body)
+                .foregroundStyle(Color.travelBody)
+                .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Review Summary")
+                    .font(.headline)
+                    .foregroundStyle(Color.travelTitle)
+
+                HStack(spacing: 8) {
+                    Text(String(format: "%.1f", viewModel.computedRating))
+                        .font(.title3.weight(.bold))
+                        .foregroundStyle(Color.travelTitle)
+
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(.yellow)
+
+                    Text("(\(viewModel.reviews.count) reviews)")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.travelBody)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Your Review")
+                    .font(.headline)
+                    .foregroundStyle(Color.travelTitle)
+
+                Stepper(value: $viewModel.reviewRating, in: 1...5, step: 1) {
+                    Text("Rating: \(Int(viewModel.reviewRating))/5")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.travelBody)
+                }
+
+                TextField("Write your review", text: $viewModel.reviewText, axis: .vertical)
+                    .lineLimit(3...5)
+                    .padding(10)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.white.opacity(0.92))
+                    )
+
+                Button {
+                    Task {
+                        await viewModel.submitReview(session: sessionManager.currentSession)
+                    }
+                } label: {
+                    Text(viewModel.isSubmittingReview ? "Submitting..." : "Add Review")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.travelPrimary)
+                        )
+                }
+                .buttonStyle(.plain)
+                .disabled(viewModel.isSubmittingReview)
+                .opacity(viewModel.isSubmittingReview ? 0.65 : 1)
+            }
+
+            if viewModel.reviews.isEmpty {
+                Text("No reviews yet.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color.travelBody)
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(viewModel.reviews) { review in
+                        VStack(alignment: .leading, spacing: 6) {
+                            HStack {
+                                Text(review.reviewerName)
+                                    .font(.subheadline.weight(.semibold))
+                                    .foregroundStyle(Color.travelTitle)
+
+                                Spacer()
+
+                                Text(String(format: "%.1f ★", review.rating))
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(Color.travelPrimary)
+                            }
+
+                            Text(review.comment)
+                                .font(.subheadline)
+                                .foregroundStyle(Color.travelBody)
+
+                            Text(review.createdAt.formatted(date: .abbreviated, time: .omitted))
+                                .font(.caption)
+                                .foregroundStyle(Color.travelBody.opacity(0.75))
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.white.opacity(0.9))
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            tabButton(icon: "mappin", tab: .location)
+            tabButton(icon: "cloud", tab: .weather)
+        }
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+    }
+
+    private func tabButton(icon: String, tab: PlaceContentTab) -> some View {
+        Button {
+            selectedTab = tab
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: icon)
+                    .font(.headline)
+                    .foregroundStyle(selectedTab == tab ? Color.travelPrimary : Color.travelBody.opacity(0.65))
+                    .frame(maxWidth: .infinity)
+
+                Rectangle()
+                    .fill(selectedTab == tab ? Color.travelPrimary : .clear)
+                    .frame(height: 2)
+            }
+            .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.plain)
     }
 
     private var topImage: some View {
