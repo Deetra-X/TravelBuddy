@@ -13,7 +13,6 @@ struct HomeScreen: View {
     @State private var isMenuOpen = false
     @State private var showAdvancedSettings = false
     @State private var showAllNearbyPlaces = false
-    @State private var wishlistItems: [WishlistPlaceItem] = []
 
     private let fallbackCoordinate = CLLocationCoordinate2D(latitude: 6.906555, longitude: 79.87071)
 
@@ -25,7 +24,7 @@ struct HomeScreen: View {
                 if contentTab == .myTrip {
                     ManualTripPlannerScreen()
                 } else if contentTab == .wishlist {
-                    WishlistScreen(items: $wishlistItems)
+                    WishlistScreen()
                 } else if contentTab == .location {
                     MapScreen(locationManager: locationManager) {
                         selectedTab = .home

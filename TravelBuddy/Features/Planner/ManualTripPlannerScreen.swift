@@ -650,6 +650,7 @@ private struct PlannedTripScreen: View {
             TripLocationStop(
                 title: place.name,
                 timeRange: place.district,
+                rating: place.rating,
                 latitude: place.latitude,
                 longitude: place.longitude,
                 destinationKey: destinationKey(for: place),
@@ -672,58 +673,70 @@ private struct PlannedTripRouteScreen: View {
             Color.travelBackground.ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 14) {
+                VStack(spacing: 10) {
                     ForEach(routeStops.indices, id: \.self) { index in
-                        HStack(alignment: .top, spacing: 10) {
+                        HStack(alignment: .top, spacing: 8) {
                             VStack(spacing: 0) {
                                 Circle()
                                     .fill(Color.travelPrimary.opacity(0.95))
-                                    .frame(width: 24, height: 24)
+                                    .frame(width: 20, height: 20)
                                     .overlay(
                                         Text("\(index + 1)")
-                                            .font(.caption2.weight(.bold))
+                                            .font(.caption2.weight(.semibold))
                                             .foregroundStyle(.white)
                                     )
 
                                 if index < routeStops.count - 1 {
                                     Rectangle()
                                         .fill(Color.travelPrimary.opacity(0.5))
-                                        .frame(width: 2, height: 132)
+                                        .frame(width: 2, height: 112)
                                         .clipShape(Capsule())
                                         .padding(.top, 6)
                                 }
                             }
-                            .frame(width: 28)
+                            .frame(width: 24)
 
-                            VStack(spacing: 8) {
+                            VStack(spacing: 6) {
                                 NavigationLink {
-                                    DestinationScreen(stop: routeStops[index])
+                                    PlaceDetailsScreen(
+                                        placeName: routeStops[index].title,
+                                        district: routeStops[index].timeRange,
+                                        fallbackDescription: routeStops[index].description,
+                                        fallbackImageURL: routeStops[index].imageURL,
+                                        fallbackRating: routeStops[index].rating,
+                                        fallbackLatitude: routeStops[index].latitude,
+                                        fallbackLongitude: routeStops[index].longitude
+                                    )
                                 } label: {
                                     DestinationCard(stop: routeStops[index])
                                 }
                                 .buttonStyle(.plain)
 
-                                if index < routeStops.count - 1 {
-                                    Button {
+                                Button {
+                                    if index < routeStops.count - 1 {
                                         openDirections(from: routeStops[index], to: routeStops[index + 1])
-                                    } label: {
-                                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                            .stroke(style: StrokeStyle(lineWidth: 1.2, dash: [7, 5]))
-                                            .foregroundStyle(Color.travelBody.opacity(0.42))
-                                            .frame(height: 54)
-                                            .overlay(
-                                                Text("Directions")
-                                                    .font(.subheadline.weight(.medium))
-                                                    .foregroundStyle(Color.travelBody.opacity(0.88))
-                                            )
+                                    } else {
+                                        openDirectionsToDestination(routeStops[index])
                                     }
-                                    .buttonStyle(.plain)
+                                } label: {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .stroke(style: StrokeStyle(lineWidth: 1.0, dash: [6, 4]))
+                                        .foregroundStyle(Color.travelBody.opacity(0.42))
+                                        .frame(height: 60) //meka
+                                        .overlay(
+                                            Text("Directions")
+                                                .font(.footnote.weight(.semibold))
+                                                .foregroundStyle(Color.travelBody.opacity(0.88))
+                                        )
                                 }
+                                .buttonStyle(.plain)
                             }
                         }
                     }
                 }
-                .padding(16)
+                .padding(.leading, 14)
+                .padding(.trailing, 24)
+                .padding(.vertical, 14)
             }
         }
         .navigationTitle("Trip Plan")
@@ -742,6 +755,12 @@ private struct PlannedTripRouteScreen: View {
             launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving]
         )
     }
+
+    private func openDirectionsToDestination(_ stop: TripLocationStop) {
+        let destinationItem = MKMapItem(placemark: MKPlacemark(coordinate: CLLocationCoordinate2D(latitude: stop.latitude, longitude: stop.longitude)))
+        destinationItem.name = stop.title
+        destinationItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
+    }
 }
 
 private struct DestinationCard: View {
@@ -750,7 +769,7 @@ private struct DestinationCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             ZStack {
-                RoundedRectangle(cornerRadius: 12, style: .continuous)
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
                     .fill(Color.travelPrimary.opacity(0.22))
 
                 if let imageURL = stop.imageURL {
@@ -763,30 +782,30 @@ private struct DestinationCard: View {
                     }
                 }
             }
-            .frame(height: 74)
-            .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .frame(height: 62)
+            .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
 
             HStack {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(stop.title)
-                        .font(.headline)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.travelTitle)
                     Text(stop.timeRange)
-                        .font(.subheadline)
+                        .font(.footnote)
                         .foregroundStyle(Color.travelPrimary)
                 }
 
                 Spacer()
 
                 Image(systemName: "chevron.right.circle")
-                    .font(.title3)
+                    .font(.subheadline)
                     .foregroundStyle(Color.travelBody.opacity(0.85))
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
             .background(Color.white.opacity(0.92))
         }
-        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
     }
 }
 
@@ -869,6 +888,7 @@ private struct TripDayPlan {
 private struct TripLocationStop {
     var title: String
     var timeRange: String
+    var rating: Double
     var latitude: Double
     var longitude: Double
     var destinationKey: String
