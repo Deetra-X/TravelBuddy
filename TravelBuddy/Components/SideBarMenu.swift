@@ -1,13 +1,14 @@
 import SwiftUI
+import Combine
 
 struct SideBarMenu: View {
+    @EnvironmentObject private var sessionManager: SessionManager
+
     var onClose: () -> Void
     var onLogout: () -> Void
     var onAdvancedSettings: () -> Void
 
-    @State private var locationEnabled = true
-    @State private var pushEnabled = false
-    @State private var selectedLanguage = "English"
+    @StateObject private var viewModel = SideBarMenuViewModel()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
@@ -32,9 +33,9 @@ struct SideBarMenu: View {
                     }
 
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Deenath")
+                    Text(viewModel.fullName)
                         .font(.subheadline)
-                    Text("deenath@gmail.com")
+                    Text(viewModel.email)
                         .font(.subheadline)
                         .foregroundStyle(Color.travelBody)
                 }
@@ -54,7 +55,15 @@ struct SideBarMenu: View {
                 .padding(.top, 4)
 
             menuRow(icon: "location", title: "Location") {
-                Toggle("", isOn: $locationEnabled)
+                Toggle("", isOn: Binding(
+                    get: { viewModel.locationEnabled },
+                    set: { newValue in
+                        viewModel.locationEnabled = newValue
+                        Task {
+                            await viewModel.persistPreferences(session: sessionManager.currentSession)
+                        }
+                    }
+                ))
                     .labelsHidden()
                     .tint(Color.travelPrimary)
             }
@@ -62,17 +71,26 @@ struct SideBarMenu: View {
             menuRow(icon: "globe", title: "Language") {
                 Menu {
                     Button("English") {
-                        selectedLanguage = "English"
+                        viewModel.language = "English"
+                        Task {
+                            await viewModel.persistPreferences(session: sessionManager.currentSession)
+                        }
                     }
                     Button("Spanish") {
-                        selectedLanguage = "Spanish"
+                        viewModel.language = "Spanish"
+                        Task {
+                            await viewModel.persistPreferences(session: sessionManager.currentSession)
+                        }
                     }
                     Button("French") {
-                        selectedLanguage = "French"
+                        viewModel.language = "French"
+                        Task {
+                            await viewModel.persistPreferences(session: sessionManager.currentSession)
+                        }
                     }
                 } label: {
                     HStack(spacing: 6) {
-                        Text(selectedLanguage)
+                        Text(viewModel.language)
                             .font(.subheadline)
                             .foregroundStyle(Color.travelBody)
                         Image(systemName: "chevron.right")
@@ -82,7 +100,15 @@ struct SideBarMenu: View {
             }
 
             menuRow(icon: "bell", title: "Push Notifications") {
-                Toggle("", isOn: $pushEnabled)
+                Toggle("", isOn: Binding(
+                    get: { viewModel.pushEnabled },
+                    set: { newValue in
+                        viewModel.pushEnabled = newValue
+                        Task {
+                            await viewModel.persistPreferences(session: sessionManager.currentSession)
+                        }
+                    }
+                ))
                     .labelsHidden()
                     .tint(Color.travelPrimary)
             }
@@ -120,6 +146,9 @@ struct SideBarMenu: View {
         .padding(.vertical, 12)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         .background(Color.travelBackground)
+        .task(id: sessionManager.currentSession?.userId) {
+            await viewModel.load(session: sessionManager.currentSession)
+        }
     }
 
     @ViewBuilder
@@ -138,5 +167,58 @@ struct SideBarMenu: View {
             accessory()
         }
         .frame(height: 34)
+    }
+}
+
+@MainActor
+private final class SideBarMenuViewModel: ObservableObject {
+    @Published var fullName: String = "Traveler"
+    @Published var email: String = ""
+    @Published var locationEnabled: Bool = true
+    @Published var pushEnabled: Bool = false
+    @Published var language: String = "English"
+
+    private let service: SidebarProfileServiceProtocol
+
+    init(service: SidebarProfileServiceProtocol? = nil) {
+        self.service = service ?? SidebarProfileService()
+    }
+
+    func load(session: AuthSession?) async {
+        guard let session else {
+            fullName = "Traveler"
+            email = ""
+            locationEnabled = true
+            pushEnabled = false
+            language = "English"
+            return
+        }
+
+        do {
+            let details = try await service.fetchUserDetails(session: session)
+            fullName = details.fullName
+            email = details.email
+            locationEnabled = details.locationEnabled
+            pushEnabled = details.pushNotificationsEnabled
+            language = details.language
+        } catch {
+            fullName = session.userName
+            email = session.userEmail
+        }
+    }
+
+    func persistPreferences(session: AuthSession?) async {
+        guard let session else { return }
+
+        do {
+            try await service.savePreferences(
+                session: session,
+                locationEnabled: locationEnabled,
+                pushNotificationsEnabled: pushEnabled,
+                language: language
+            )
+        } catch {
+            return
+        }
     }
 }

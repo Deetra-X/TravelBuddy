@@ -88,6 +88,13 @@ struct SignInScreen: View {
                             }
 
                             Button {
+                                guard !viewModel.isLoading else { return }
+                                Task {
+                                    let success = await viewModel.loginWithGoogle()
+                                    if success {
+                                        onLoginSuccess()
+                                    }
+                                }
                             } label: {
                                 HStack(spacing: 12) {
                                     Image(systemName: "g.circle.fill")

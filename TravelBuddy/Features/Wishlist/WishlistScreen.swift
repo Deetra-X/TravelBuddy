@@ -35,7 +35,7 @@ struct WishlistScreen: View {
             .padding(.bottom, 24)
         }
         .background(Color.travelBackground.ignoresSafeArea())
-        .task {
+        .task(id: sessionManager.currentSession?.userId) {
             await viewModel.load(session: sessionManager.currentSession)
         }
     }

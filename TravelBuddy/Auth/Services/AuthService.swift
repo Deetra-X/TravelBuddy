@@ -1,7 +1,10 @@
 import Foundation
+import AuthenticationServices
+import UIKit
 
 protocol AuthServiceProtocol {
     func login(email: String, password: String) async throws -> AuthUser
+    func loginWithGoogle() async throws -> AuthUser
     func register(name: String, email: String, password: String) async throws -> AuthUser
     func resendConfirmationEmail(email: String) async throws
     func requestPasswordResetCode(email: String) async throws -> String
@@ -85,6 +88,55 @@ struct AuthService: AuthServiceProtocol {
         try await sessionManager.saveSession(authSession)
 
         return AuthUser(id: user.id, name: name, email: userEmail)
+    }
+
+    func loginWithGoogle() async throws -> AuthUser {
+        guard AuthEndpoints.isConfigured,
+              let authorizeURL = AuthEndpoints.googleAuthorizeURL(redirectTo: SupabaseConfig.oAuthRedirectURLString),
+              let userProfileURL = AuthEndpoints.userProfile else {
+            throw AuthError.configurationMissing
+        }
+
+        let callbackURL = try await startOAuthSession(authorizeURL: authorizeURL)
+        let callbackParameters = parseCallbackParameters(from: callbackURL)
+
+        if let errorDescription = callbackParameters["error_description"] ?? callbackParameters["error"] {
+            throw AuthError.network(errorDescription)
+        }
+
+        guard let accessToken = callbackParameters["access_token"], !accessToken.isEmpty else {
+            throw AuthError.network("Google sign-in did not return an access token.")
+        }
+
+        let refreshToken = callbackParameters["refresh_token"]
+        let expiresIn = Int(callbackParameters["expires_in"] ?? "")
+        let user = try await fetchCurrentUser(accessToken: accessToken, url: userProfileURL)
+
+        let resolvedEmail = user.email ?? ""
+        let metadataFullName = user.userMetadata?.fullName
+        let metadataName = user.userMetadata?.name
+        let emailPrefix = resolvedEmail.split(separator: "@").first.map(String.init)
+        let resolvedName = metadataFullName ?? metadataName ?? emailPrefix ?? "Traveler"
+
+        let expiresAt: Date?
+        if let expiresIn {
+            expiresAt = Date(timeIntervalSinceNow: TimeInterval(expiresIn))
+        } else {
+            expiresAt = nil
+        }
+
+        let authSession = AuthSession(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            userId: user.id,
+            userEmail: resolvedEmail,
+            userName: resolvedName,
+            expiresAt: expiresAt
+        )
+
+        try await sessionManager.saveSession(authSession)
+
+        return AuthUser(id: user.id, name: resolvedName, email: resolvedEmail)
     }
 
     func register(name: String, email: String, password: String) async throws -> AuthUser {
@@ -265,6 +317,100 @@ struct AuthService: AuthServiceProtocol {
         }
 
         throw AuthError.network("Request failed with status code \(httpResponse.statusCode).")
+    }
+
+    private func startOAuthSession(authorizeURL: URL) async throws -> URL {
+        try await withCheckedThrowingContinuation { continuation in
+            Task { @MainActor in
+                let presentationProvider = OAuthPresentationContextProvider()
+                let session = ASWebAuthenticationSession(
+                    url: authorizeURL,
+                    callbackURLScheme: SupabaseConfig.oAuthCallbackScheme
+                ) { callbackURL, error in
+                    if let error {
+                        continuation.resume(throwing: AuthError.network(error.localizedDescription))
+                        return
+                    }
+
+                    guard let callbackURL else {
+                        continuation.resume(throwing: AuthError.network("Google sign-in callback was empty."))
+                        return
+                    }
+
+                    continuation.resume(returning: callbackURL)
+                }
+
+                session.presentationContextProvider = presentationProvider
+                session.prefersEphemeralWebBrowserSession = true
+                presentationProvider.session = session
+
+                if !session.start() {
+                    continuation.resume(throwing: AuthError.network("Unable to start Google sign-in session."))
+                }
+            }
+        }
+    }
+
+    private func parseCallbackParameters(from url: URL) -> [String: String] {
+        var parameters: [String: String] = [:]
+
+        if let queryItems = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems {
+            for item in queryItems {
+                parameters[item.name] = item.value
+            }
+        }
+
+        if let fragment = url.fragment {
+            for pair in fragment.split(separator: "&") {
+                let parts = pair.split(separator: "=", maxSplits: 1)
+                guard let rawKey = parts.first else { continue }
+                let rawValue = parts.count > 1 ? String(parts[1]) : ""
+                let key = String(rawKey).removingPercentEncoding ?? String(rawKey)
+                let value = rawValue.removingPercentEncoding ?? rawValue
+                parameters[key] = value
+            }
+        }
+
+        return parameters
+    }
+
+    private func fetchCurrentUser(accessToken: String, url: URL) async throws -> SupabaseUser {
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.timeoutInterval = 20
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue(SupabaseConfig.anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw AuthError.network("Invalid server response.")
+        }
+
+        guard (200..<300).contains(httpResponse.statusCode) else {
+            if let serverError = try? JSONDecoder().decode(SupabaseErrorResponse.self, from: data) {
+                throw AuthError.network(serverError.userMessage)
+            }
+            throw AuthError.network("Failed to load Google account profile.")
+        }
+
+        do {
+            return try JSONDecoder().decode(SupabaseUser.self, from: data)
+        } catch {
+            throw AuthError.network("Failed to decode Google account profile.")
+        }
+    }
+}
+
+private final class OAuthPresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
+    var session: ASWebAuthenticationSession?
+
+    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+        UIApplication.shared.connectedScenes
+            .compactMap { $0 as? UIWindowScene }
+            .flatMap { $0.windows }
+            .first(where: \.isKeyWindow) ?? ASPresentationAnchor()
     }
 }
 

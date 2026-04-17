@@ -41,6 +41,20 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
+    func loginWithGoogle() async -> Bool {
+        clearError()
+        isLoading = true
+        defer { isLoading = false }
+
+        do {
+            currentUser = try await service.loginWithGoogle()
+            return true
+        } catch {
+            errorMessage = readable(error)
+            return false
+        }
+    }
+
     func register(name: String, email: String, password: String) async -> Bool {
         clearError()
         isLoading = true
