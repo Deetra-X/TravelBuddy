@@ -321,6 +321,7 @@ struct QuickPlanCard: View {
 
 struct ExperienceCard: View {
     let item: ExperienceItem
+    var onTap: () -> Void = {}
 
     private var localImage: Image? {
         guard let imageName = item.imageName else {
@@ -339,54 +340,82 @@ struct ExperienceCard: View {
                 ?? UIImage(named: "\(name).JPG") {
                 return Image(uiImage: image)
             }
+
+            let bundleCandidates = [
+                name,
+                "\(name).png",
+                "\(name).PNG",
+                "\(name).jpg",
+                "\(name).JPG",
+                "Images/\(name)",
+                "Images/\(name).png",
+                "Images/\(name).PNG",
+                "Images/\(name).jpg",
+                "Images/\(name).JPG",
+                "Assets/Images/\(name)",
+                "Assets/Images/\(name).png",
+                "Assets/Images/\(name).PNG",
+                "Assets/Images/\(name).jpg",
+                "Assets/Images/\(name).JPG"
+            ]
+
+            for candidate in bundleCandidates {
+                if let path = Bundle.main.path(forResource: candidate, ofType: nil),
+                   let image = UIImage(contentsOfFile: path) {
+                    return Image(uiImage: image)
+                }
+            }
         }
 
         return nil
     }
 
     var body: some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color(hex: item.accentHex).opacity(0.4))
+        Button(action: onTap) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color(hex: item.accentHex).opacity(0.4))
 
-            if let localImage {
-                localImage
-                    .resizable()
-                    .scaledToFill()
-            } else if let imageURL = item.imageURL {
-                AsyncImage(url: imageURL) { phase in
-                    if let image = phase.image {
-                        image
-                            .resizable()
-                            .scaledToFill()
+                if let localImage {
+                    localImage
+                        .resizable()
+                        .scaledToFill()
+                } else if let imageURL = item.imageURL {
+                    AsyncImage(url: imageURL) { phase in
+                        if let image = phase.image {
+                            image
+                                .resizable()
+                                .scaledToFill()
+                        }
                     }
                 }
+
+                LinearGradient(
+                    colors: [.black.opacity(0.45), .black.opacity(0.2), .clear],
+                    startPoint: .bottom,
+                    endPoint: .top
+                )
+
+                VStack(alignment: .leading, spacing: 5) {
+                    Image(systemName: item.icon)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.white.opacity(0.95))
+
+                    Text(item.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+
+                    Text(item.subtitle)
+                        .font(.caption2)
+                        .foregroundStyle(.white.opacity(0.88))
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
             }
-
-            LinearGradient(
-                colors: [.black.opacity(0.45), .black.opacity(0.2), .clear],
-                startPoint: .bottom,
-                endPoint: .top
-            )
-
-            VStack(alignment: .leading, spacing: 5) {
-                Image(systemName: item.icon)
-                    .font(.caption.weight(.bold))
-                    .foregroundStyle(.white.opacity(0.95))
-
-                Text(item.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-
-                Text(item.subtitle)
-                    .font(.caption2)
-                    .foregroundStyle(.white.opacity(0.88))
-            }
-            .padding(10)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+            .frame(height: 118)
+            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
         }
-        .frame(height: 118)
-        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .buttonStyle(.plain)
     }
 }
 

@@ -108,14 +108,16 @@ struct ExperienceItem: Identifiable {
     let accentHex: String
     let imageName: String?
     let imageURL: URL?
+    let matchedPlaces: [PlaceCardItem]
 
-    init(title: String, subtitle: String, icon: String, accentHex: String, imageName: String? = nil, imageURLString: String? = nil) {
+    init(title: String, subtitle: String, icon: String, accentHex: String, imageName: String? = nil, imageURLString: String? = nil, matchedPlaces: [PlaceCardItem] = []) {
         self.title = title
         self.subtitle = subtitle
         self.icon = icon
         self.accentHex = accentHex
         self.imageName = imageName
         self.imageURL = imageURLString.flatMap(URL.init(string:))
+        self.matchedPlaces = matchedPlaces
     }
 }
 

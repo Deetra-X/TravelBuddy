@@ -14,9 +14,14 @@ struct HomeScreen: View {
     @State private var isMenuOpen = false
     @State private var showAdvancedSettings = false
     @State private var showAllNearbyPlaces = false
+    @State private var showExperiencePlaces = false
     @State private var quickPlans: [QuickPlanItem] = []
     @State private var selectedQuickPlan: QuickPlanItem?
     @State private var showQuickPlanDetail = false
+    @State private var selectedExperiencePlaces: [PlaceCardItem] = []
+    @State private var experienceTiles: [ExperienceItem] = HomeMockData.experiences
+    @State private var experienceTileRules: [ExperienceTileRule] = ExperienceTileRule.defaultRules
+    @StateObject private var experienceTileService = ExperienceTileLoader()
 
     private let fallbackCoordinate = CLLocationCoordinate2D(latitude: 6.906555, longitude: 79.87071)
 
@@ -75,8 +80,11 @@ struct HomeScreen: View {
                             HomeSectionHeader(title: "Experiences You’ll Love")
 
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                                ForEach(HomeMockData.experiences) { item in
-                                    ExperienceCard(item: item)
+                                ForEach(experienceTiles) { item in
+                                    ExperienceCard(item: item) {
+                                        selectedExperiencePlaces = item.matchedPlaces.isEmpty ? allNearbyPlaces : item.matchedPlaces
+                                        showExperiencePlaces = true
+                                    }
                                 }
                             }
 
@@ -137,6 +145,15 @@ struct HomeScreen: View {
                 }
             )
         }
+        .fullScreenCover(isPresented: $showExperiencePlaces) {
+            NearbyPlacesListScreen(
+                items: selectedExperiencePlaces,
+                currentLocation: referenceLocation,
+                onClose: {
+                    showExperiencePlaces = false
+                }
+            )
+        }
         .sheet(isPresented: $showQuickPlanDetail) {
             if let plan = selectedQuickPlan {
                 QuickPlanDetailScreen(plan: plan) {
@@ -166,6 +183,15 @@ struct HomeScreen: View {
                 currentLocation: location ?? referenceLocation,
                 districtFilter: shouldForceColomboOnly ? "Colombo" : nil
             )
+        }
+        .onReceive(nearbyPlacesViewModel.$allPlaces) { places in
+            guard !places.isEmpty else { return }
+            experienceTiles = buildExperienceTiles(from: places)
+        }
+        .task {
+            await experienceTileService.loadRules()
+            experienceTileRules = experienceTileService.rules
+            experienceTiles = buildExperienceTiles(from: allNearbyPlaces)
         }
         .safeAreaInset(edge: .bottom) {
             Botum_Navigation(selectedTab: selectedTab) { tab in
@@ -326,6 +352,66 @@ struct HomeScreen: View {
         let placeLocation = CLLocation(latitude: coordinate.latitude, longitude: coordinate.longitude)
         let distanceInKm = referenceLocation.distance(from: placeLocation) / 1000
         return String(format: "%.1f km away", distanceInKm)
+    }
+
+    private func buildExperienceTiles(from places: [PlaceCardItem]) -> [ExperienceItem] {
+        let rules = experienceTileRules.isEmpty ? ExperienceTileRule.defaultRules : experienceTileRules
+        return rules.map { rule in
+            let matched = matchedPlaces(from: places, rule: rule)
+            return tile(rule: rule, with: matched)
+        }
+    }
+
+    private func matchedPlaces(from places: [PlaceCardItem], rule: ExperienceTileRule) -> [PlaceCardItem] {
+        places
+            .filter { place in
+                let haystack = "\(place.name) \(place.description)".lowercased()
+                let district = place.subtitle.lowercased()
+
+                let matchesName = rule.nameKeywords.contains { haystack.contains($0.lowercased()) }
+                let matchesDescription = rule.descriptionKeywords.contains { haystack.contains($0.lowercased()) }
+                let matchesDistrict = rule.districtKeywords.contains { district.contains($0.lowercased()) }
+
+                return matchesName || matchesDescription || matchesDistrict
+            }
+            .sorted {
+                if $0.rating == $1.rating {
+                    return $0.name < $1.name
+                }
+                return $0.rating > $1.rating
+            }
+            .prefix(8)
+            .map { $0 }
+    }
+
+    private func tile(rule: ExperienceTileRule, with places: [PlaceCardItem]) -> ExperienceItem {
+        let defaultRule = ExperienceTileRule.defaultRules.first(where: { $0.tileKey == rule.tileKey })
+        let resolvedImageName = rule.imageName ?? defaultRule?.imageName
+        let resolvedAccentHex = rule.accentHex.isEmpty ? (defaultRule?.accentHex ?? "0D47A1") : rule.accentHex
+        let resolvedIcon = rule.icon.isEmpty ? (defaultRule?.icon ?? "star.fill") : rule.icon
+        let resolvedTitle = rule.title.isEmpty ? (defaultRule?.title ?? rule.tileKey) : rule.title
+        let resolvedSubtitle = rule.subtitle.isEmpty ? (defaultRule?.subtitle ?? "") : rule.subtitle
+
+        guard let lead = places.first else {
+            return ExperienceItem(
+                title: resolvedTitle,
+                subtitle: resolvedSubtitle,
+                icon: resolvedIcon,
+                accentHex: resolvedAccentHex,
+                imageName: resolvedImageName,
+                matchedPlaces: []
+            )
+        }
+
+        return ExperienceItem(
+            title: resolvedTitle,
+            subtitle: "\(lead.name) • \(lead.subtitle)",
+            icon: resolvedIcon,
+            accentHex: resolvedAccentHex,
+            imageName: resolvedImageName,
+            imageURLString: lead.imageURL?.absoluteString,
+            matchedPlaces: places
+        )
     }
 
     private var shouldForceColomboOnly: Bool {
