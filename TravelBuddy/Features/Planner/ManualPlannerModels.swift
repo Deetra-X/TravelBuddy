@@ -77,6 +77,8 @@ enum ManualPlanCategory: String, CaseIterable, Identifiable {
 
 struct ManualPlanPlace: Identifiable {
     let id = UUID()
+    let wishlistPlaceId: String? = nil
+    let wishlistSource: WishlistPlaceSource = .manualPlannerPlaces
     let category: ManualPlanCategory
     let name: String
     let district: String

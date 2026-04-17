@@ -1,8 +1,15 @@
 import Foundation
 import CoreLocation
 
+enum WishlistPlaceSource: String, Codable, Hashable {
+    case places
+    case manualPlannerPlaces = "manual_planner_places"
+}
+
 struct PlaceCardItem: Identifiable {
     let id: String
+    let wishlistPlaceId: String?
+    let wishlistSource: WishlistPlaceSource
     let name: String
     let description: String
     let subtitle: String
@@ -13,6 +20,8 @@ struct PlaceCardItem: Identifiable {
 
     init(
         id: String = UUID().uuidString,
+        wishlistPlaceId: String? = nil,
+        wishlistSource: WishlistPlaceSource = .places,
         name: String,
         description: String,
         subtitle: String,
@@ -22,6 +31,8 @@ struct PlaceCardItem: Identifiable {
         imageURL: URL? = nil
     ) {
         self.id = id
+        self.wishlistPlaceId = wishlistPlaceId
+        self.wishlistSource = wishlistSource
         self.name = name
         self.description = description
         self.subtitle = subtitle
@@ -56,6 +67,8 @@ struct CloudPlaceRecord: Decodable {
     func toPlaceCardItem() -> PlaceCardItem {
         PlaceCardItem(
             id: id,
+            wishlistPlaceId: id,
+            wishlistSource: .places,
             name: name,
             description: description,
             subtitle: district,
@@ -80,6 +93,17 @@ struct ExperienceItem: Identifiable {
     let subtitle: String
     let icon: String
     let accentHex: String
+    let imageName: String?
+    let imageURL: URL?
+
+    init(title: String, subtitle: String, icon: String, accentHex: String, imageName: String? = nil, imageURLString: String? = nil) {
+        self.title = title
+        self.subtitle = subtitle
+        self.icon = icon
+        self.accentHex = accentHex
+        self.imageName = imageName
+        self.imageURL = imageURLString.flatMap(URL.init(string:))
+    }
 }
 
 struct OngoingTripItem {
@@ -91,6 +115,7 @@ struct OngoingTripItem {
 enum HomeMockData {
     static let explorePlaces: [PlaceCardItem] = [
         PlaceCardItem(
+            wishlistSource: .places,
             name: "Nine Arch Bridge",
             description: "Iconic railway bridge surrounded by greenery.",
             subtitle: "Ella",
@@ -99,6 +124,7 @@ enum HomeMockData {
             accentHex: "1B5E20"
         ),
         PlaceCardItem(
+            wishlistSource: .places,
             name: "Alpha Mosque",
             description: "Historic urban landmark in Colombo.",
             subtitle: "Colombo",
@@ -107,6 +133,7 @@ enum HomeMockData {
             accentHex: "7B3F00"
         ),
         PlaceCardItem(
+            wishlistSource: .places,
             name: "Olu Ella",
             description: "Scenic waterfall destination in hill country.",
             subtitle: "Badulla",
@@ -115,6 +142,7 @@ enum HomeMockData {
             accentHex: "0D47A1"
         ),
         PlaceCardItem(
+            wishlistSource: .places,
             name: "Kothmale",
             description: "Popular scenic area with mountain views.",
             subtitle: "Nuwara Eliya",
@@ -131,10 +159,34 @@ enum HomeMockData {
     ]
 
     static let experiences: [ExperienceItem] = [
-        ExperienceItem(title: "Beach escapes", subtitle: "Sunny coast", icon: "sun.max.fill", accentHex: "006064"),
-        ExperienceItem(title: "Hiking Adventures", subtitle: "Mountain trails", icon: "figure.hiking", accentHex: "1B5E20"),
-        ExperienceItem(title: "Scenic Rides", subtitle: "Train journeys", icon: "train.side.front.car", accentHex: "4E342E"),
-        ExperienceItem(title: "Culture Journeys", subtitle: "Temples & history", icon: "building.columns.fill", accentHex: "6A1B9A")
+        ExperienceItem(
+            title: "Beach escapes",
+            subtitle: "Sunny coast",
+            icon: "sun.max.fill",
+            accentHex: "006064",
+            imageURLString: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80"
+        ),
+        ExperienceItem(
+            title: "Hiking Adventures",
+            subtitle: "Mountain trails",
+            icon: "figure.hiking",
+            accentHex: "1B5E20",
+            imageURLString: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80"
+        ),
+        ExperienceItem(
+            title: "Scenic Rides",
+            subtitle: "Train journeys",
+            icon: "train.side.front.car",
+            accentHex: "4E342E",
+            imageName: "train"
+        ),
+        ExperienceItem(
+            title: "Culture Journeys",
+            subtitle: "Temples & history",
+            icon: "building.columns.fill",
+            accentHex: "6A1B9A",
+            imageName: "culture_home"
+        )
     ]
 
     static let ongoingTrip = OngoingTripItem(

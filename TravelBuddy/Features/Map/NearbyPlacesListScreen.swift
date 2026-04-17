@@ -38,11 +38,21 @@ struct NearbyPlacesListScreen: View {
 
                     Spacer()
 
-                    Text(String(format: "%.1f", item.rating))
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.black.opacity(0.07), in: Capsule())
+                    VStack(alignment: .trailing, spacing: 8) {
+                        DestinationWishlistButton(
+                            directPlaceId: item.wishlistPlaceId,
+                            source: item.wishlistSource,
+                            placeName: item.name,
+                            district: item.subtitle,
+                            imageURL: item.imageURL
+                        )
+
+                        Text(String(format: "%.1f", item.rating))
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(.black.opacity(0.07), in: Capsule())
+                    }
                 }
                 .padding(.vertical, 4)
             }

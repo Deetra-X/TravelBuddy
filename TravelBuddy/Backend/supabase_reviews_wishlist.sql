@@ -19,13 +19,51 @@ create index if not exists idx_place_reviews_place_id_created_at
 create table if not exists public.user_wishlist (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  place_id uuid not null references public.manual_planner_places(id) on delete cascade,
+  place_id uuid not null,
+  place_source text not null default 'manual_planner_places',
+  place_name text,
+  place_district text,
+  place_image_url text,
   created_at timestamptz not null default timezone('utc', now()),
-  constraint user_wishlist_unique unique(user_id, place_id)
+  constraint user_wishlist_unique unique(user_id, place_id, place_source)
 );
+
+alter table public.user_wishlist
+  add column if not exists place_source text;
+
+alter table public.user_wishlist
+  add column if not exists place_name text;
+
+alter table public.user_wishlist
+  add column if not exists place_district text;
+
+alter table public.user_wishlist
+  add column if not exists place_image_url text;
+
+update public.user_wishlist
+set place_source = 'manual_planner_places'
+where place_source is null;
+
+alter table public.user_wishlist
+  alter column place_source set default 'manual_planner_places';
+
+alter table public.user_wishlist
+  alter column place_source set not null;
+
+alter table public.user_wishlist
+  drop constraint if exists user_wishlist_unique;
+
+alter table public.user_wishlist
+  add constraint user_wishlist_unique unique(user_id, place_id, place_source);
+
+alter table public.user_wishlist
+  drop constraint if exists user_wishlist_place_id_fkey;
 
 create index if not exists idx_user_wishlist_user_id_created_at
   on public.user_wishlist(user_id, created_at desc);
+
+create index if not exists idx_user_wishlist_user_source_created_at
+  on public.user_wishlist(user_id, place_source, created_at desc);
 
 alter table public.place_reviews enable row level security;
 alter table public.user_wishlist enable row level security;

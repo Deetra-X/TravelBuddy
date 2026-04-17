@@ -44,12 +44,13 @@ struct PlaceReview: Identifiable, Hashable {
 }
 
 protocol PlaceDetailsServiceProtocol {
+    func fetchPlaceId(name: String, district: String, source: WishlistPlaceSource) async throws -> String?
     func fetchManualPlannerPlace(name: String, district: String) async throws -> PlaceDetail?
     func fetchReviews(placeId: String) async throws -> [PlaceReview]
     func submitReview(placeId: String, userId: String, reviewerName: String, rating: Double, comment: String, accessToken: String) async throws
-    func isWishlisted(userId: String, placeId: String, accessToken: String) async throws -> Bool
-    func addToWishlist(userId: String, placeId: String, accessToken: String) async throws
-    func removeFromWishlist(userId: String, placeId: String, accessToken: String) async throws
+    func isWishlisted(userId: String, placeId: String, source: WishlistPlaceSource, accessToken: String) async throws -> Bool
+    func addToWishlist(userId: String, placeId: String, source: WishlistPlaceSource, placeName: String, district: String, imageURLString: String?, accessToken: String) async throws
+    func removeFromWishlist(userId: String, placeId: String, source: WishlistPlaceSource, accessToken: String) async throws
     func fetchWishlist(userId: String, accessToken: String) async throws -> [WishlistPlaceItem]
 }
 
@@ -66,6 +67,14 @@ final class PlaceDetailsService: PlaceDetailsServiceProtocol {
                 return "Failed to process server response."
             }
         }
+    }
+
+    func fetchPlaceId(name: String, district: String, source: WishlistPlaceSource) async throws -> String? {
+        guard let place = try await fetchPlace(name: name, district: district, source: source) else {
+            return nil
+        }
+
+        return place.id
     }
 
     func fetchManualPlannerPlace(name: String, district: String) async throws -> PlaceDetail? {
@@ -89,6 +98,30 @@ final class PlaceDetailsService: PlaceDetailsServiceProtocol {
         }
 
         let records: [ManualPlannerPlaceRecord] = try await executeRequest(url: url)
+        return records.first?.toPlaceDetail()
+    }
+
+    private func fetchPlace(name: String, district: String, source: WishlistPlaceSource) async throws -> PlaceDetail? {
+        guard AuthEndpoints.isConfigured, let baseURL = AuthEndpoints.baseURL else {
+            throw PlaceDetailsError.missingConfiguration
+        }
+
+        guard var components = URLComponents(url: baseURL.appending(path: tablePath(for: source)), resolvingAgainstBaseURL: false) else {
+            throw URLError(.badURL)
+        }
+
+        components.queryItems = [
+            URLQueryItem(name: "select", value: "id,name,district,description,rating,latitude,longitude,image_url"),
+            URLQueryItem(name: "name", value: "eq.\(name)"),
+            URLQueryItem(name: "district", value: "eq.\(district)"),
+            URLQueryItem(name: "limit", value: "1")
+        ]
+
+        guard let url = components.url else {
+            throw URLError(.badURL)
+        }
+
+        let records: [PlaceLookupRecord] = try await executeRequest(url: url)
         return records.first?.toPlaceDetail()
     }
 
@@ -125,7 +158,7 @@ final class PlaceDetailsService: PlaceDetailsServiceProtocol {
         try await executeWriteRequest(url: url, method: "POST", accessToken: accessToken, body: payload)
     }
 
-    func isWishlisted(userId: String, placeId: String, accessToken: String) async throws -> Bool {
+    func isWishlisted(userId: String, placeId: String, source: WishlistPlaceSource, accessToken: String) async throws -> Bool {
         guard AuthEndpoints.isConfigured, let baseURL = AuthEndpoints.baseURL else {
             throw PlaceDetailsError.missingConfiguration
         }
@@ -138,6 +171,7 @@ final class PlaceDetailsService: PlaceDetailsServiceProtocol {
             URLQueryItem(name: "select", value: "id"),
             URLQueryItem(name: "user_id", value: "eq.\(userId)"),
             URLQueryItem(name: "place_id", value: "eq.\(placeId)"),
+            URLQueryItem(name: "place_source", value: "eq.\(source.rawValue)"),
             URLQueryItem(name: "limit", value: "1")
         ]
 
@@ -149,17 +183,24 @@ final class PlaceDetailsService: PlaceDetailsServiceProtocol {
         return !records.isEmpty
     }
 
-    func addToWishlist(userId: String, placeId: String, accessToken: String) async throws {
+    func addToWishlist(userId: String, placeId: String, source: WishlistPlaceSource, placeName: String, district: String, imageURLString: String?, accessToken: String) async throws {
         guard AuthEndpoints.isConfigured, let baseURL = AuthEndpoints.baseURL else {
             throw PlaceDetailsError.missingConfiguration
         }
 
         let url = baseURL.appending(path: "/rest/v1/user_wishlist")
-        let payload = [WishlistInsertPayload(userId: userId, placeId: placeId)]
+        let payload = [WishlistInsertPayload(
+            userId: userId,
+            placeId: placeId,
+            placeSource: source.rawValue,
+            placeName: placeName,
+            placeDistrict: district,
+            placeImageURL: imageURLString
+        )]
         try await executeWriteRequest(url: url, method: "POST", accessToken: accessToken, body: payload)
     }
 
-    func removeFromWishlist(userId: String, placeId: String, accessToken: String) async throws {
+    func removeFromWishlist(userId: String, placeId: String, source: WishlistPlaceSource, accessToken: String) async throws {
         guard AuthEndpoints.isConfigured, let baseURL = AuthEndpoints.baseURL else {
             throw PlaceDetailsError.missingConfiguration
         }
@@ -170,7 +211,8 @@ final class PlaceDetailsService: PlaceDetailsServiceProtocol {
 
         components.queryItems = [
             URLQueryItem(name: "user_id", value: "eq.\(userId)"),
-            URLQueryItem(name: "place_id", value: "eq.\(placeId)")
+            URLQueryItem(name: "place_id", value: "eq.\(placeId)"),
+            URLQueryItem(name: "place_source", value: "eq.\(source.rawValue)")
         ]
 
         guard let url = components.url else {
@@ -190,7 +232,7 @@ final class PlaceDetailsService: PlaceDetailsServiceProtocol {
         }
 
         wishlistComponents.queryItems = [
-            URLQueryItem(name: "select", value: "place_id"),
+            URLQueryItem(name: "select", value: "place_id,place_source,place_name,place_district,place_image_url"),
             URLQueryItem(name: "user_id", value: "eq.\(userId)")
         ]
 
@@ -198,40 +240,87 @@ final class PlaceDetailsService: PlaceDetailsServiceProtocol {
             throw URLError(.badURL)
         }
 
-        let wishlistRows: [WishlistPlaceOnlyRecord] = try await executeRequest(url: wishlistURL, accessToken: accessToken)
-        let placeIds = wishlistRows.map(\.placeId)
+        let wishlistRows: [WishlistSourceRowRecord] = try await executeRequest(url: wishlistURL, accessToken: accessToken)
 
-        guard !placeIds.isEmpty else {
+        guard !wishlistRows.isEmpty else {
             return []
         }
 
-        let joinedIDs = placeIds.joined(separator: ",")
-        guard var placesComponents = URLComponents(url: baseURL.appending(path: "/rest/v1/manual_planner_places"), resolvingAgainstBaseURL: false) else {
+        let grouped = Dictionary(grouping: wishlistRows, by: { $0.source })
+        var placeItems: [WishlistPlaceItem] = []
+
+        for (source, rows) in grouped {
+            let snapshotRows = rows.filter { $0.hasSnapshot }
+            let lookupRows = rows.filter { !$0.hasSnapshot }
+
+            let snapshotItems: [WishlistPlaceItem] = snapshotRows.compactMap { row in
+                guard let title = row.placeName, let subtitle = row.placeDistrict else { return nil }
+
+                return WishlistPlaceItem(
+                    id: "\(source.rawValue)-\(row.placeId)",
+                    placeId: row.placeId,
+                    source: source,
+                    title: title,
+                    subtitle: subtitle,
+                    accentHex: "0D47A1",
+                    imageURL: row.imageURL.flatMap(URL.init(string:))
+                )
+            }
+
+            var lookupItems: [WishlistPlaceItem] = []
+            if !lookupRows.isEmpty {
+                let ids = lookupRows.map(\.placeId)
+                let lookupRecords = try await fetchWishlistLookupRecords(ids: ids, source: source, accessToken: accessToken)
+                let byId = Dictionary(uniqueKeysWithValues: lookupRecords.map { ($0.id, $0) })
+
+                lookupItems = ids.compactMap { placeId in
+                    guard let place = byId[placeId] else { return nil }
+                    return WishlistPlaceItem(
+                        id: "\(source.rawValue)-\(placeId)",
+                        placeId: placeId,
+                        source: source,
+                        title: place.name,
+                        subtitle: place.district,
+                        accentHex: "0D47A1",
+                        imageURL: place.imageURLString.flatMap(URL.init(string:))
+                    )
+                }
+            }
+
+            placeItems.append(contentsOf: snapshotItems)
+            placeItems.append(contentsOf: lookupItems)
+        }
+
+        return placeItems
+    }
+
+    private func fetchWishlistLookupRecords(ids: [String], source: WishlistPlaceSource, accessToken: String) async throws -> [WishlistLookupRecord] {
+        guard AuthEndpoints.isConfigured, let baseURL = AuthEndpoints.baseURL else {
+            throw PlaceDetailsError.missingConfiguration
+        }
+
+        guard var components = URLComponents(url: baseURL.appending(path: tablePath(for: source)), resolvingAgainstBaseURL: false) else {
             throw URLError(.badURL)
         }
 
-        placesComponents.queryItems = [
+        components.queryItems = [
             URLQueryItem(name: "select", value: "id,name,district,image_url"),
-            URLQueryItem(name: "id", value: "in.(\(joinedIDs))")
+            URLQueryItem(name: "id", value: "in.(\(ids.joined(separator: ",")))")
         ]
 
-        guard let placesURL = placesComponents.url else {
+        guard let url = components.url else {
             throw URLError(.badURL)
         }
 
-        let placeRecords: [WishlistPlaceRecord] = try await executeRequest(url: placesURL, accessToken: accessToken)
-        let byId = Dictionary(uniqueKeysWithValues: placeRecords.map { ($0.id, $0) })
+        return try await executeRequest(url: url, accessToken: accessToken)
+    }
 
-        return placeIds.compactMap { placeId in
-            guard let place = byId[placeId] else { return nil }
-            return WishlistPlaceItem(
-                id: placeId,
-                placeId: placeId,
-                title: place.name,
-                subtitle: place.district,
-                accentHex: "0D47A1",
-                imageURL: place.imageURLString.flatMap(URL.init(string:))
-            )
+    private func tablePath(for source: WishlistPlaceSource) -> String {
+        switch source {
+        case .places:
+            return "/rest/v1/places"
+        case .manualPlannerPlaces:
+            return "/rest/v1/manual_planner_places"
         }
     }
 
@@ -349,7 +438,7 @@ final class PlaceDetailsViewModel: ObservableObject {
                 reviews = try await service.fetchReviews(placeId: fetched.id)
 
                 if let session {
-                    isWishlisted = try await service.isWishlisted(userId: session.userId, placeId: fetched.id, accessToken: session.accessToken)
+                    isWishlisted = try await service.isWishlisted(userId: session.userId, placeId: fetched.id, source: .manualPlannerPlaces, accessToken: session.accessToken)
                 } else {
                     isWishlisted = false
                 }
@@ -374,11 +463,19 @@ final class PlaceDetailsViewModel: ObservableObject {
 
         do {
             if isWishlisted {
-                try await service.removeFromWishlist(userId: session.userId, placeId: place.id, accessToken: session.accessToken)
+                try await service.removeFromWishlist(userId: session.userId, placeId: place.id, source: .manualPlannerPlaces, accessToken: session.accessToken)
                 isWishlisted = false
                 toastMessage = "Removed from wishlist."
             } else {
-                try await service.addToWishlist(userId: session.userId, placeId: place.id, accessToken: session.accessToken)
+                try await service.addToWishlist(
+                    userId: session.userId,
+                    placeId: place.id,
+                    source: .manualPlannerPlaces,
+                    placeName: place.name,
+                    district: place.district,
+                    imageURLString: place.imageURL?.absoluteString,
+                    accessToken: session.accessToken
+                )
                 isWishlisted = true
                 toastMessage = "Added to wishlist."
             }
@@ -781,6 +878,53 @@ struct PlaceDetailsScreen: View {
     }
 }
 
+private struct PlaceLookupRecord: Decodable {
+    let id: String
+    let name: String
+    let district: String
+    let imageURLString: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case district
+        case imageURLString = "image_url"
+    }
+
+    func toPlaceDetail() -> PlaceDetail {
+        PlaceDetail(
+            id: id,
+            name: name,
+            district: district,
+            description: "",
+            rating: 0,
+            latitude: 0,
+            longitude: 0,
+            imageURL: imageURLString.flatMap(URL.init(string:))
+        )
+    }
+}
+
+private struct WishlistSourceRowRecord: Decodable {
+    let placeId: String
+    let source: WishlistPlaceSource
+    let placeName: String?
+    let placeDistrict: String?
+    let imageURL: String?
+
+    enum CodingKeys: String, CodingKey {
+        case placeId = "place_id"
+        case source = "place_source"
+        case placeName = "place_name"
+        case placeDistrict = "place_district"
+        case imageURL = "place_image_url"
+    }
+
+    var hasSnapshot: Bool {
+        !(placeName?.isEmpty ?? true) && !(placeDistrict?.isEmpty ?? true)
+    }
+}
+
 private struct ManualPlannerPlaceRecord: Decodable {
     let id: String
     let name: String
@@ -868,25 +1012,25 @@ private struct WishlistRowRecord: Decodable {
     let id: String
 }
 
-private struct WishlistPlaceOnlyRecord: Decodable {
-    let placeId: String
-
-    enum CodingKeys: String, CodingKey {
-        case placeId = "place_id"
-    }
-}
-
 private struct WishlistInsertPayload: Encodable {
     let userId: String
     let placeId: String
+    let placeSource: String
+    let placeName: String
+    let placeDistrict: String
+    let placeImageURL: String?
 
     enum CodingKeys: String, CodingKey {
         case userId = "user_id"
         case placeId = "place_id"
+        case placeSource = "place_source"
+        case placeName = "place_name"
+        case placeDistrict = "place_district"
+        case placeImageURL = "place_image_url"
     }
 }
 
-private struct WishlistPlaceRecord: Decodable {
+private struct WishlistLookupRecord: Decodable {
     let id: String
     let name: String
     let district: String

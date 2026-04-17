@@ -781,6 +781,22 @@ private struct DestinationCard: View {
                         }
                     }
                 }
+
+                VStack {
+                    HStack {
+                        Spacer()
+
+                        DestinationWishlistButton(
+                            source: .manualPlannerPlaces,
+                            placeName: stop.title,
+                            district: stop.timeRange,
+                            imageURL: stop.imageURL
+                        )
+                        .padding(8)
+                    }
+
+                    Spacer()
+                }
             }
             .frame(height: 62)
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -1079,7 +1095,7 @@ private struct ManualPlanPlaceCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ZStack(alignment: .topTrailing) {
+            ZStack {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .fill(
                         LinearGradient(
@@ -1100,7 +1116,10 @@ private struct ManualPlanPlaceCard: View {
                         }
                     }
                 }
-
+            }
+            .frame(height: 140)
+            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(alignment: .topLeading) {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .font(.caption2)
@@ -1113,8 +1132,15 @@ private struct ManualPlanPlaceCard: View {
                 .background(.black.opacity(0.3), in: Capsule())
                 .padding(8)
             }
-            .frame(height: 140)
-            .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .overlay(alignment: .topTrailing) {
+                DestinationWishlistButton(
+                    source: .manualPlannerPlaces,
+                    placeName: place.name,
+                    district: place.district,
+                    imageURL: place.imageURL
+                )
+                .padding(8)
+            }
 
             Text(place.name)
                 .font(.headline)

@@ -178,7 +178,7 @@ private final class WishlistViewModel: ObservableObject {
         guard let session else { return }
 
         do {
-            try await service.removeFromWishlist(userId: session.userId, placeId: item.placeId, accessToken: session.accessToken)
+            try await service.removeFromWishlist(userId: session.userId, placeId: item.placeId, source: item.source, accessToken: session.accessToken)
             items.removeAll { $0.id == item.id }
         } catch {
             return

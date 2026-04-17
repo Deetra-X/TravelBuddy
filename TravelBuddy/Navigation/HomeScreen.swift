@@ -73,9 +73,6 @@ struct HomeScreen: View {
                                 }
                             }
 
-                            HomeSectionHeader(title: "Nearby map")
-                            NearbyMapCard(region: $locationManager.region, places: Array(sortedPlaces.prefix(3)))
-
                             HomeSectionHeader(title: "Ongoing trip", trailingText: "Active now")
                             OngoingTripCard(item: HomeMockData.ongoingTrip)
                         }
