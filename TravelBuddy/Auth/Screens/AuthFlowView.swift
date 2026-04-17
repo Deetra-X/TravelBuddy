@@ -6,12 +6,15 @@ private enum AuthRoute: Hashable {
     case otp
     case resetPassword
     case success
+    case preferences
+    case preferencesSuccess
 }
 
 struct AuthFlowView: View {
     let onLoginSuccess: () -> Void
 
     @StateObject private var viewModel = AuthViewModel()
+    @StateObject private var preferencesViewModel = UserPreferencesViewModel()
     @State private var path: [AuthRoute] = []
 
     var body: some View {
@@ -26,15 +29,25 @@ struct AuthFlowView: View {
                     viewModel.clearError()
                     path.append(.forgotPassword)
                 },
-                onLoginSuccess: onLoginSuccess
+                onLoginSuccess: {
+                    // Navigate to preferences instead of directly logging in
+                    viewModel.clearError()
+                    path.append(.preferences)
+                }
             )
             .navigationDestination(for: AuthRoute.self) { route in
                 switch route {
                 case .signUp:
                     SignUpScreen(
                         viewModel: viewModel,
-                        onSignUpSuccess: onLoginSuccess,
-                        onTemporaryHome: onLoginSuccess
+                        onSignUpSuccess: {
+                            viewModel.clearError()
+                            path.append(.preferences)
+                        },
+                        onTemporaryHome: {
+                            viewModel.clearError()
+                            path.append(.preferences)
+                        }
                     )
                 case .forgotPassword:
                     ForgotPasswordScreen(
@@ -65,6 +78,23 @@ struct AuthFlowView: View {
                         viewModel.clearError()
                         path = []
                     }
+                case .preferences:
+                    UserPreferencesScreen(
+                        viewModel: preferencesViewModel,
+                        onPreferencesSelected: {
+                            path.append(.preferencesSuccess)
+                        },
+                        onSkip: {
+                            path.append(.preferencesSuccess)
+                        }
+                    )
+                case .preferencesSuccess:
+                    UserPreferencesSuccessScreen(
+                        viewModel: preferencesViewModel,
+                        onComplete: {
+                            onLoginSuccess()
+                        }
+                    )
                 }
             }
         }

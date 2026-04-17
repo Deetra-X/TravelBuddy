@@ -35,19 +35,9 @@ struct SideBarMenu: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.fullName)
                         .font(.subheadline)
-                    Text(viewModel.email)
-                        .font(.subheadline)
-                        .foregroundStyle(Color.travelBody)
                 }
 
                 Spacer()
-
-                Button("Edit Profile") { }
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 14)
-                    .frame(height: 36)
-                    .background(Capsule().fill(Color.travelPrimary))
             }
 
             Text("Preferences")

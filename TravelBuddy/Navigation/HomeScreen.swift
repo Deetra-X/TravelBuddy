@@ -8,11 +8,15 @@ struct HomeScreen: View {
     @StateObject private var locationManager = UserLocationManager()
     @StateObject private var weatherViewModel = WeatherViewModel()
     @StateObject private var nearbyPlacesViewModel = NearbyPlacesViewModel()
+    @StateObject private var preferencesViewModel = UserPreferencesViewModel()
     @State private var selectedTab: HomeTab = .home
     @State private var contentTab: HomeTab = .home
     @State private var isMenuOpen = false
     @State private var showAdvancedSettings = false
     @State private var showAllNearbyPlaces = false
+    @State private var quickPlans: [QuickPlanItem] = []
+    @State private var selectedQuickPlan: QuickPlanItem?
+    @State private var showQuickPlanDetail = false
 
     private let fallbackCoordinate = CLLocationCoordinate2D(latitude: 6.906555, longitude: 79.87071)
 
@@ -60,8 +64,11 @@ struct HomeScreen: View {
                             HomeSectionHeader(title: "Quick Plans")
 
                             VStack(spacing: 10) {
-                                ForEach(HomeMockData.quickPlans) { item in
-                                    QuickPlanCard(item: item)
+                                ForEach(quickPlans) { item in
+                                    QuickPlanCard(item: item) {
+                                        selectedQuickPlan = item
+                                        showQuickPlanDetail = true
+                                    }
                                 }
                             }
 
@@ -130,6 +137,13 @@ struct HomeScreen: View {
                 }
             )
         }
+        .sheet(isPresented: $showQuickPlanDetail) {
+            if let plan = selectedQuickPlan {
+                QuickPlanDetailScreen(plan: plan) {
+                    showQuickPlanDetail = false
+                }
+            }
+        }
         .onAppear {
             locationManager.requestAndStart()
             weatherViewModel.refreshIfNeeded(from: locationManager.location)
@@ -137,6 +151,14 @@ struct HomeScreen: View {
                 currentLocation: referenceLocation,
                 districtFilter: shouldForceColomboOnly ? "Colombo" : nil
             )
+            
+            // Generate quick plans based on user preferences
+            let selectedActivities = preferencesViewModel.userPreferences.selectedActivities
+            if selectedActivities.isEmpty {
+                quickPlans = HomeMockData.quickPlans
+            } else {
+                quickPlans = QuickPlansGenerator.generatePlans(from: selectedActivities)
+            }
         }
         .onReceive(locationManager.$location) { location in
             weatherViewModel.refreshIfNeeded(from: location)
@@ -201,7 +223,7 @@ struct HomeScreen: View {
     }
 
     private var homeBanner: some View {
-        ZStack(alignment: .topLeading) {
+        ZStack(alignment: .leading) {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(
                     LinearGradient(

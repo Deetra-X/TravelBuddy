@@ -85,6 +85,19 @@ struct QuickPlanItem: Identifiable {
     let title: String
     let subtitle: String
     let icon: String
+    let duration: String
+    let description: String
+    let itinerary: [ItineraryStop]
+    let category: String
+}
+
+struct ItineraryStop: Identifiable {
+    let id = UUID()
+    let day: Int
+    let title: String
+    let description: String
+    let coordinate: CLLocationCoordinate2D
+    let icon: String
 }
 
 struct ExperienceItem: Identifiable {
@@ -153,9 +166,9 @@ enum HomeMockData {
     ]
 
     static let quickPlans: [QuickPlanItem] = [
-        QuickPlanItem(title: "1 Day in Colombo", subtitle: "Architecture, markets & food", icon: "building.2.fill"),
-        QuickPlanItem(title: "2 Day in Ella", subtitle: "Nine Arch Bridge, hiking trails", icon: "mountain.2.fill"),
-        QuickPlanItem(title: "1 Day in Kandy", subtitle: "Temple, city views & culture", icon: "tram.fill")
+        QuickPlanItem(title: "1 Day in Colombo", subtitle: "Architecture, markets & food", icon: "building.2.fill", duration: "1 Day", description: "Explore Colombo's vibrant culture.", itinerary: [], category: "city"),
+        QuickPlanItem(title: "2 Day in Ella", subtitle: "Nine Arch Bridge, hiking trails", icon: "mountain.2.fill", duration: "2 Days", description: "Adventure in the mountains.", itinerary: [], category: "adventure"),
+        QuickPlanItem(title: "1 Day in Kandy", subtitle: "Temple, city views & culture", icon: "tram.fill", duration: "1 Day", description: "Cultural experience in Kandy.", itinerary: [], category: "culture")
     ]
 
     static let experiences: [ExperienceItem] = [
@@ -164,14 +177,14 @@ enum HomeMockData {
             subtitle: "Sunny coast",
             icon: "sun.max.fill",
             accentHex: "006064",
-            imageURLString: "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=1200&q=80"
+            imageName: "ocean"
         ),
         ExperienceItem(
             title: "Hiking Adventures",
             subtitle: "Mountain trails",
             icon: "figure.hiking",
             accentHex: "1B5E20",
-            imageURLString: "https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&w=1200&q=80"
+            imageName: "hikin_home"
         ),
         ExperienceItem(
             title: "Scenic Rides",

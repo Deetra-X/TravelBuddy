@@ -177,33 +177,6 @@ private class KeychainHelper {
 }
 
 // MARK: - UserDefaults Helper
-private class UserDefaultsHelper {
-    private let userIdKey = "com.travelbuddy.user.id"
-    private let userEmailKey = "com.travelbuddy.user.email"
-    private let userNameKey = "com.travelbuddy.user.name"
-    
-    func saveUserInfo(id: String, email: String, name: String) {
-        UserDefaults.standard.set(id, forKey: userIdKey)
-        UserDefaults.standard.set(email, forKey: userEmailKey)
-        UserDefaults.standard.set(name, forKey: userNameKey)
-    }
-    
-    func getUserInfo() -> (id: String, email: String, name: String)? {
-        guard let id = UserDefaults.standard.string(forKey: userIdKey),
-              let email = UserDefaults.standard.string(forKey: userEmailKey),
-              let name = UserDefaults.standard.string(forKey: userNameKey) else {
-            return nil
-        }
-        return (id, email, name)
-    }
-    
-    func clearUserInfo() {
-        UserDefaults.standard.removeObject(forKey: userIdKey)
-        UserDefaults.standard.removeObject(forKey: userEmailKey)
-        UserDefaults.standard.removeObject(forKey: userNameKey)
-    }
-}
-
 // MARK: - Keychain Error
 enum KeychainError: LocalizedError {
     case saveFailed(OSStatus)

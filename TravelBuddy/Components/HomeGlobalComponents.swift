@@ -281,42 +281,41 @@ struct ExplorePlaceCard: View {
 
 struct QuickPlanCard: View {
     let item: QuickPlanItem
+    let onTap: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.travelPrimary.opacity(0.16))
-                .frame(width: 38, height: 38)
-                .overlay {
-                    Image(systemName: item.icon)
-                        .foregroundStyle(Color.travelPrimary)
-                }
+        Button(action: onTap) {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.travelPrimary.opacity(0.16))
+                    .frame(width: 38, height: 38)
+                    .overlay {
+                        Image(systemName: item.icon)
+                            .foregroundStyle(Color.travelPrimary)
+                    }
 
-            VStack(alignment: .leading, spacing: 2) {
-                Text(item.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.travelTitle)
-
-                Text(item.subtitle)
-                    .font(.caption)
-                    .foregroundStyle(Color.travelBody)
-            }
-
-            Spacer()
-
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.travelPrimary.opacity(0.16))
-                .frame(width: 38, height: 38)
-                .overlay {
-                    Image(systemName: "arrow.clockwise")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(item.title)
+                        .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.travelTitle)
+
+                    Text(item.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Color.travelBody)
                 }
+
+                Spacer()
+
+                Image(systemName: "arrow.right")
+                    .foregroundStyle(Color.travelPrimary)
+                    .font(.body.weight(.semibold))
+            }
+            .padding(10)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.72))
+            )
         }
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.72))
-        )
     }
 }
 
@@ -328,10 +327,18 @@ struct ExperienceCard: View {
             return nil
         }
 
-        if let image = UIImage(named: imageName)
-            ?? UIImage(named: "\(imageName).jpg")
-            ?? UIImage(named: "\(imageName).JPG") {
-            return Image(uiImage: image)
+        let fallbackNames: [String] = imageName == "hikin_home"
+            ? ["hikin_home", "hike_home"]
+            : [imageName]
+
+        for name in fallbackNames {
+            if let image = UIImage(named: name)
+                ?? UIImage(named: "\(name).png")
+                ?? UIImage(named: "\(name).PNG")
+                ?? UIImage(named: "\(name).jpg")
+                ?? UIImage(named: "\(name).JPG") {
+                return Image(uiImage: image)
+            }
         }
 
         return nil

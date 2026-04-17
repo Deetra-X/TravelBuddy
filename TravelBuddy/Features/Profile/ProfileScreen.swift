@@ -7,10 +7,6 @@ struct ProfileScreen: View {
     @State private var email = "ddeenath@gmail.com"
     @State private var password = "************"
     @State private var dateOfBirth = "12/12/2001"
-
-    @State private var notificationsEnabled = false
-    @State private var showDeleteAlert = false
-    @State private var showClearHistoryAlert = false
     @State private var selectedPhotoItem: PhotosPickerItem?
     @State private var profileImage: UIImage?
 
@@ -42,90 +38,12 @@ struct ProfileScreen: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 10)
-
-                VStack(alignment: .leading, spacing: 14) {
-                    Text("Additional Informations")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.travelTitle)
-
-                    HStack {
-                        Text("Notification")
-                            .font(.body.weight(.semibold))
-                            .foregroundStyle(Color.travelTitle)
-
-                        Spacer()
-
-                        Toggle("", isOn: $notificationsEnabled)
-                            .labelsHidden()
-                            .tint(Color.travelPrimary)
-                    }
-
-                    Button {
-                        showClearHistoryAlert = true
-                    } label: {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Clear History")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(Color.travelTitle)
-
-                                Text("Clear your wishlists and trip details and search history")
-                                    .font(.footnote)
-                                    .foregroundStyle(Color.travelBody)
-                                    .multilineTextAlignment(.leading)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(Color.travelBody)
-                                .padding(.top, 2)
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        showDeleteAlert = true
-                    } label: {
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text("Delete Account")
-                                    .font(.body.weight(.semibold))
-                                    .foregroundStyle(.red)
-
-                                Text("Permanently remove your account and data from Tripify, proceed with caution")
-                                    .font(.footnote)
-                                    .foregroundStyle(Color.travelBody)
-                                    .multilineTextAlignment(.leading)
-                            }
-
-                            Spacer()
-
-                            Image(systemName: "chevron.right")
-                                .foregroundStyle(Color.travelBody)
-                                .padding(.top, 2)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                .padding(.top, 18)
             }
             .padding(.horizontal, 16)
             .padding(.top, 10)
             .padding(.bottom, 120)
         }
         .background(Color.travelBackground.ignoresSafeArea())
-        .alert("Delete Account", isPresented: $showDeleteAlert) {
-            Button("Delete", role: .destructive) { }
-            Button("Cancel", role: .cancel) { }
-        } message: {
-            Text("This action cannot be undone.")
-        }
-        .alert("History Cleared", isPresented: $showClearHistoryAlert) {
-            Button("OK", role: .cancel) { }
-        } message: {
-            Text("Your local history has been cleared.")
-        }
         .onChange(of: selectedPhotoItem) {
             Task {
                 await loadProfileImage(from: selectedPhotoItem)
