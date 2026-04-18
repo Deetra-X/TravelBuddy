@@ -98,6 +98,7 @@ struct ItineraryStop: Identifiable {
     let description: String
     let coordinate: CLLocationCoordinate2D
     let icon: String
+    let imageURLString: String?
 }
 
 struct ExperienceItem: Identifiable {

@@ -3,6 +3,45 @@ import MapKit
 import CoreLocation
 
 struct HomeScreen: View {
+    private struct QuickPlanPlaceRecord: Decodable {
+        let category: String
+        let district: String
+        let name: String
+        let description: String
+        let rating: Double
+        let imageURLString: String?
+        let latitude: Double
+        let longitude: Double
+
+        enum CodingKeys: String, CodingKey {
+            case category
+            case district
+            case name
+            case description
+            case rating
+            case imageURLString = "image_url"
+            case latitude
+            case longitude
+        }
+
+        func toQuickPlanPlace(resolvedImageURLString: String? = nil) -> QuickPlanDBPlace {
+            QuickPlanDBPlace(
+                category: category,
+                name: name,
+                district: district,
+                description: description,
+                rating: rating,
+                imageURLString: resolvedImageURLString ?? imageURLString,
+                coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+            )
+        }
+    }
+
+    private struct ExperiencePlacesSelection: Identifiable {
+        let id = UUID()
+        let places: [PlaceCardItem]
+    }
+
     var onLogout: () -> Void
 
     @EnvironmentObject private var sessionManager: SessionManager
@@ -17,11 +56,10 @@ struct HomeScreen: View {
     @State private var isMenuOpen = false
     @State private var showAdvancedSettings = false
     @State private var showAllNearbyPlaces = false
-    @State private var showExperiencePlaces = false
     @State private var quickPlans: [QuickPlanItem] = []
+    @State private var quickPlanDBPlaces: [QuickPlanDBPlace] = []
     @State private var selectedQuickPlan: QuickPlanItem?
-    @State private var showQuickPlanDetail = false
-    @State private var selectedExperiencePlaces: [PlaceCardItem] = []
+    @State private var selectedExperienceSelection: ExperiencePlacesSelection?
     @State private var experienceTiles: [ExperienceItem] = HomeMockData.experiences
     @State private var experienceTileRules: [ExperienceTileRule] = ExperienceTileRule.defaultRules
     @StateObject private var experienceTileService = ExperienceTileLoader()
@@ -80,10 +118,17 @@ struct HomeScreen: View {
                             HomeSectionHeader(title: "Quick Plans")
 
                             VStack(spacing: 10) {
-                                ForEach(quickPlans) { item in
-                                    QuickPlanCard(item: item) {
-                                        selectedQuickPlan = item
-                                        showQuickPlanDetail = true
+                                if quickPlans.isEmpty {
+                                    Text("No quick plans yet. Add places to your database and try again.")
+                                        .font(.subheadline)
+                                        .foregroundStyle(Color.travelBody)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                        .padding(.vertical, 8)
+                                } else {
+                                    ForEach(quickPlans) { item in
+                                        QuickPlanCard(item: item) {
+                                            selectedQuickPlan = item
+                                        }
                                     }
                                 }
                             }
@@ -93,16 +138,21 @@ struct HomeScreen: View {
                             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                                 ForEach(experienceTiles) { item in
                                     ExperienceCard(item: item) {
-                                        selectedExperiencePlaces = item.matchedPlaces.isEmpty ? allNearbyPlaces : item.matchedPlaces
-                                        showExperiencePlaces = true
+                                        selectedExperienceSelection = ExperiencePlacesSelection(
+                                            places: item.matchedPlaces.isEmpty ? allNearbyPlaces : item.matchedPlaces
+                                        )
                                     }
                                 }
                             }
 
-                            HomeSectionHeader(title: "Ongoing trip", trailingText: "Active now")
-                            OngoingTripCard(item: activeOngoingTripCardItem) {
-                                selectedTab = .journey
-                                contentTab = .journey
+                            HomeSectionHeader(title: "Ongoing trip", trailingText: activeOngoingTripCardItem == nil ? nil : "Active now")
+                            if let ongoingTripItem = activeOngoingTripCardItem {
+                                OngoingTripCard(item: ongoingTripItem) {
+                                    selectedTab = .journey
+                                    contentTab = .journey
+                                }
+                            } else {
+                                noOngoingTripCard
                             }
                         }
                         .padding(.horizontal, 16)
@@ -159,21 +209,29 @@ struct HomeScreen: View {
                 }
             )
         }
-        .fullScreenCover(isPresented: $showExperiencePlaces) {
+        .fullScreenCover(item: $selectedExperienceSelection) { selection in
             NearbyPlacesListScreen(
-                items: selectedExperiencePlaces,
+                items: selection.places,
                 currentLocation: referenceLocation,
                 onClose: {
-                    showExperiencePlaces = false
+                    selectedExperienceSelection = nil
                 }
             )
         }
-        .sheet(isPresented: $showQuickPlanDetail) {
-            if let plan = selectedQuickPlan {
-                QuickPlanDetailScreen(plan: plan) {
-                    showQuickPlanDetail = false
+        .sheet(item: $selectedQuickPlan) { plan in
+            QuickPlanDetailScreen(
+                plan: plan,
+                onClose: {
+                    selectedQuickPlan = nil
+                },
+                onTripPlanned: {
+                    selectedQuickPlan = nil
+                    selectedTab = .journey
+                    contentTab = .journey
                 }
-            }
+            )
+            .environmentObject(sessionManager)
+            .environmentObject(ongoingTripViewModel)
         }
         .onAppear {
             locationManager.requestAndStart()
@@ -182,13 +240,13 @@ struct HomeScreen: View {
                 currentLocation: referenceLocation,
                 districtFilter: shouldForceColomboOnly ? "Colombo" : nil
             )
-            
-            // Generate quick plans based on user preferences
-            let selectedActivities = preferencesViewModel.userPreferences.selectedActivities
-            if selectedActivities.isEmpty {
-                quickPlans = HomeMockData.quickPlans
-            } else {
-                quickPlans = QuickPlansGenerator.generatePlans(from: selectedActivities)
+
+            preferencesViewModel.loadUserPreferences()
+            refreshQuickPlans()
+
+            Task {
+                await loadQuickPlanPlacesFromDB()
+                refreshQuickPlans()
             }
 
             if let session = sessionManager.currentSession {
@@ -196,6 +254,9 @@ struct HomeScreen: View {
                     await ongoingTripViewModel.loadTrips(session: session, force: false)
                 }
             }
+        }
+        .onChange(of: preferencesViewModel.userPreferences.selectedActivityIds) {
+            refreshQuickPlans()
         }
         .onReceive(locationManager.$location) { location in
             weatherViewModel.refreshIfNeeded(from: location)
@@ -207,6 +268,7 @@ struct HomeScreen: View {
         .onReceive(nearbyPlacesViewModel.$allPlaces) { places in
             guard !places.isEmpty else { return }
             experienceTiles = buildExperienceTiles(from: places)
+            refreshQuickPlans()
         }
         .task {
             await experienceTileService.loadRules()
@@ -268,9 +330,9 @@ struct HomeScreen: View {
         }
     }
 
-    private var activeOngoingTripCardItem: OngoingTripItem {
+    private var activeOngoingTripCardItem: OngoingTripItem? {
         guard let latest = ongoingTripViewModel.latestTrip else {
-            return HomeMockData.ongoingTrip
+            return nil
         }
 
         return OngoingTripItem(
@@ -278,6 +340,163 @@ struct HomeScreen: View {
             progressText: latest.displayProgressText,
             progress: latest.resolvedProgress
         )
+    }
+
+    private var noOngoingTripCard: some View {
+        Button {
+            selectedTab = .myTrip
+            contentTab = .myTrip
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "map")
+                    .font(.title3)
+                    .foregroundStyle(Color.travelPrimary)
+                    .frame(width: 42, height: 42)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12, style: .continuous)
+                            .fill(Color.travelPrimary.opacity(0.12))
+                    )
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("No ongoing trips")
+                        .font(.headline)
+                        .foregroundStyle(Color.travelTitle)
+                    Text("Start planning and your trip will appear here")
+                        .font(.subheadline)
+                        .foregroundStyle(Color.travelBody)
+                }
+
+                Spacer()
+
+                Image(systemName: "chevron.right")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color.travelPrimary)
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.9))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func refreshQuickPlans() {
+        let selectedActivities = preferencesViewModel.userPreferences.selectedActivities
+        quickPlans = QuickPlansGenerator.generatePlans(
+            from: selectedActivities,
+            categorizedPlaces: quickPlanDBPlaces
+        )
+    }
+
+    private func loadQuickPlanPlacesFromDB() async {
+        guard AuthEndpoints.isConfigured,
+              let baseURL = AuthEndpoints.baseURL else {
+            quickPlanDBPlaces = []
+            return
+        }
+
+        guard var components = URLComponents(url: baseURL.appending(path: "/rest/v1/manual_planner_places"), resolvingAgainstBaseURL: false) else {
+            quickPlanDBPlaces = []
+            return
+        }
+
+        components.queryItems = [
+            URLQueryItem(name: "select", value: "category,district,name,description,rating,image_url,latitude,longitude"),
+            URLQueryItem(name: "order", value: "rating.desc")
+        ]
+
+        guard let url = components.url else {
+            quickPlanDBPlaces = []
+            return
+        }
+
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(SupabaseConfig.anonKey, forHTTPHeaderField: "apikey")
+        request.setValue("Bearer \(SupabaseConfig.anonKey)", forHTTPHeaderField: "Authorization")
+
+        do {
+            async let places = NearbyPlacesService().fetchPlaces()
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                quickPlanDBPlaces = []
+                return
+            }
+
+            let decoded = try JSONDecoder().decode([QuickPlanPlaceRecord].self, from: data)
+            let placeCandidates = (try? await places) ?? []
+            quickPlanDBPlaces = decoded.map { record in
+                let resolved = resolveQuickPlanImageURLString(for: record, candidates: placeCandidates)
+                return record.toQuickPlanPlace(resolvedImageURLString: resolved)
+            }
+        } catch {
+            quickPlanDBPlaces = []
+        }
+    }
+
+    private func resolveQuickPlanImageURLString(for record: QuickPlanPlaceRecord, candidates: [PlaceCardItem]) -> String? {
+        if let source = record.imageURLString,
+           !isPlaceholderImageURLString(source) {
+            return source
+        }
+
+        let targetName = normalizePlannerText(record.name)
+        let targetDistrict = normalizePlannerText(record.district)
+
+        let scored = candidates.compactMap { candidate -> (URL, Double)? in
+            guard let candidateURL = candidate.imageURL,
+                  !isPlaceholderImageURL(candidateURL) else { return nil }
+
+            let candidateName = normalizePlannerText(candidate.name)
+            let candidateDistrict = normalizePlannerText(candidate.subtitle)
+
+            let nameScore: Double
+            if candidateName == targetName {
+                nameScore = 0.0
+            } else if candidateName.contains(targetName) || targetName.contains(candidateName) {
+                nameScore = 0.35
+            } else {
+                let targetTokens = Set(targetName.split(separator: " ").map(String.init))
+                let candidateTokens = Set(candidateName.split(separator: " ").map(String.init))
+                let overlap = targetTokens.intersection(candidateTokens).count
+                guard overlap > 0 else { return nil }
+                nameScore = 0.8
+            }
+
+            let districtBonus = (candidateDistrict == targetDistrict) ? -0.2 : 0.0
+            let coordinateScore = min(
+                hypot(candidate.coordinate.latitude - record.latitude, candidate.coordinate.longitude - record.longitude),
+                1.0
+            )
+            let finalScore = nameScore + districtBonus + coordinateScore
+
+            guard finalScore <= 1.35 else { return nil }
+            return (candidateURL, finalScore)
+        }
+
+        return scored.min(by: { $0.1 < $1.1 })?.0.absoluteString
+    }
+
+    private func normalizePlannerText(_ value: String) -> String {
+        value
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func isPlaceholderImageURLString(_ value: String) -> Bool {
+        guard let url = URL(string: value) else { return false }
+        return isPlaceholderImageURL(url)
+    }
+
+    private func isPlaceholderImageURL(_ url: URL) -> Bool {
+        guard let host = url.host?.lowercased() else { return false }
+        return host.contains("example.com")
     }
 
     private var homeBanner: some View {

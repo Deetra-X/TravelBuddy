@@ -6,8 +6,7 @@ struct JourneyTripsScreen: View {
 
     var onStartPlanning: () -> Void
 
-    @State private var selectedTripId: String?
-    @State private var showDetail = false
+    @State private var selectedTrip: OngoingTripRecord?
 
     var body: some View {
         NavigationStack {
@@ -72,12 +71,10 @@ struct JourneyTripsScreen: View {
                 }
             }
         }
-        .sheet(isPresented: $showDetail) {
-            if let tripId = selectedTripId {
-                OngoingTripDetailScreen(tripId: tripId)
-                    .environmentObject(sessionManager)
-                    .environmentObject(ongoingTripViewModel)
-            }
+        .sheet(item: $selectedTrip) { trip in
+            OngoingTripDetailScreen(tripId: trip.id)
+                .environmentObject(sessionManager)
+                .environmentObject(ongoingTripViewModel)
         }
         .task(id: sessionManager.currentSession?.userId) {
             guard let session = sessionManager.currentSession else { return }
@@ -94,8 +91,7 @@ struct JourneyTripsScreen: View {
                 progress: trip.resolvedProgress
             ),
             onTap: {
-                selectedTripId = trip.id
-                showDetail = true
+                selectedTrip = trip
             }
         )
         .overlay(alignment: .topTrailing) {

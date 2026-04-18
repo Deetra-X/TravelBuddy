@@ -62,7 +62,7 @@ final class NearbyPlacesViewModel: ObservableObject {
             allPlaces = try await service.fetchPlaces()
             updateNearbyPlaces(currentLocation: currentLocation, districtFilter: districtFilter)
         } catch {
-            allPlaces = HomeMockData.explorePlaces
+            allPlaces = []
             updateNearbyPlaces(currentLocation: currentLocation, districtFilter: districtFilter)
         }
     }

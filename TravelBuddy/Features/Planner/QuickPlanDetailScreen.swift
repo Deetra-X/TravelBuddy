@@ -4,9 +4,14 @@ import MapKit
 struct QuickPlanDetailScreen: View {
     let plan: QuickPlanItem
     let onClose: () -> Void
+    var onTripPlanned: (() -> Void)? = nil
     
     @State private var selectedStopIndex = 0
     @State private var cameraPosition: MapCameraPosition = .automatic
+    @State private var isSavingTrip = false
+
+    @EnvironmentObject private var sessionManager: SessionManager
+    @EnvironmentObject private var ongoingTripViewModel: OngoingTripViewModel
     
     var body: some View {
         ZStack {
@@ -134,12 +139,22 @@ struct QuickPlanDetailScreen: View {
                     }
                 }
                 
-                // Book Button
-                Button(action: onClose) {
+                Button {
+                    Task {
+                        await saveQuickPlanToOngoingTrips()
+                    }
+                } label: {
                     HStack {
-                        Text("Start Planning This Trip")
+                        if isSavingTrip {
+                            ProgressView()
+                                .tint(.white)
+                        }
+
+                        Text(isSavingTrip ? "Saving Trip..." : "Start Planning This Trip")
                             .font(.headline)
-                        Image(systemName: "arrow.right")
+                        if !isSavingTrip {
+                            Image(systemName: "arrow.right")
+                        }
                     }
                     .frame(maxWidth: .infinity)
                     .frame(height: 56)
@@ -147,6 +162,8 @@ struct QuickPlanDetailScreen: View {
                     .background(Color.travelPrimary)
                     .cornerRadius(12)
                 }
+                .disabled(isSavingTrip)
+                .opacity(isSavingTrip ? 0.8 : 1)
                 .padding(.horizontal, 20)
                 .padding(.vertical, 16)
             }
@@ -161,6 +178,55 @@ struct QuickPlanDetailScreen: View {
                     )
                 )
             }
+        }
+    }
+
+    @MainActor
+    private func saveQuickPlanToOngoingTrips() async {
+        guard let session = sessionManager.currentSession else {
+            onClose()
+            return
+        }
+
+        guard !plan.itinerary.isEmpty else {
+            onClose()
+            return
+        }
+
+        isSavingTrip = true
+        defer { isSavingTrip = false }
+
+        let isoFormatter = ISO8601DateFormatter()
+        let baseDate = Date()
+        let stops: [PlannedTripStopDraft] = plan.itinerary.enumerated().map { index, stop in
+            let dayOffset = max(0, stop.day - 1)
+            let plannedDate = Calendar.current.date(byAdding: .day, value: dayOffset, to: baseDate) ?? baseDate
+
+            return PlannedTripStopDraft(
+                dayNumber: max(1, stop.day),
+                sortOrder: index,
+                title: stop.title,
+                subtitle: "Day \(stop.day)",
+                description: stop.description,
+                latitude: stop.coordinate.latitude,
+                longitude: stop.coordinate.longitude,
+                imageName: nil,
+                imageURLString: stop.imageURLString,
+                plannedDateISO: isoFormatter.string(from: plannedDate)
+            )
+        }
+
+        await ongoingTripViewModel.saveTrip(
+            session: session,
+            sourceType: "quick_plan",
+            title: plan.title,
+            subtitle: "\(plan.duration) • \(plan.subtitle)",
+            stops: stops
+        )
+
+        if ongoingTripViewModel.errorMessage == nil {
+            onClose()
+            onTripPlanned?()
         }
     }
 }
@@ -245,8 +311,8 @@ struct ItineraryStopCard: View {
             duration: "3 Days",
             description: "Experience thrilling outdoor activities in the mountains.",
             itinerary: [
-                ItineraryStop(day: 1, title: "Mountain Hiking", description: "Start with a guided hike to Eagle's Peak viewpoint.", coordinate: CLLocationCoordinate2D(latitude: 7.0258, longitude: 80.6002), icon: "mountain.2.fill"),
-                ItineraryStop(day: 2, title: "Mountain Camping", description: "Set up camp at a scenic mountain plateau.", coordinate: CLLocationCoordinate2D(latitude: 7.0400, longitude: 80.6150), icon: "tent.fill")
+                ItineraryStop(day: 1, title: "Mountain Hiking", description: "Start with a guided hike to Eagle's Peak viewpoint.", coordinate: CLLocationCoordinate2D(latitude: 7.0258, longitude: 80.6002), icon: "mountain.2.fill", imageURLString: nil),
+                ItineraryStop(day: 2, title: "Mountain Camping", description: "Set up camp at a scenic mountain plateau.", coordinate: CLLocationCoordinate2D(latitude: 7.0400, longitude: 80.6150), icon: "tent.fill", imageURLString: nil)
             ],
             category: "adventure"
         ),
