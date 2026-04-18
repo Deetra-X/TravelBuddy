@@ -6,6 +6,7 @@ create extension if not exists "pgcrypto";
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
+  date_of_birth text,
   created_at timestamptz not null default timezone('utc', now()),
   updated_at timestamptz not null default timezone('utc', now())
 );
@@ -38,10 +39,11 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, full_name)
+  insert into public.profiles (id, full_name, date_of_birth)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'name', split_part(new.email, '@', 1))
+    coalesce(new.raw_user_meta_data ->> 'name', split_part(new.email, '@', 1)),
+    nullif(new.raw_user_meta_data ->> 'date_of_birth', '')
   )
   on conflict (id) do nothing;
 

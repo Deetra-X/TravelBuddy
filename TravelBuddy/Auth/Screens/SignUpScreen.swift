@@ -83,7 +83,12 @@ struct SignUpScreen: View {
 
                     AuthPrimaryButton(title: "Sign up", isLoading: viewModel.isLoading) {
                         Task {
-                            _ = await viewModel.register(name: name, email: email, password: password)
+                            _ = await viewModel.register(
+                                name: name,
+                                dateOfBirth: Self.signupDateFormatter.string(from: dateOfBirth),
+                                email: email,
+                                password: password
+                            )
                         }
                     }
 
@@ -197,4 +202,13 @@ struct SignUpScreen: View {
 
         return UIImage(named: "sign_up") ?? UIImage(named: "sign_up.png")
     }
+
+    private static let signupDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.calendar = .current
+        formatter.locale = .current
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .none
+        return formatter
+    }()
 }

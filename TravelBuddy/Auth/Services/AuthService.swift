@@ -5,7 +5,7 @@ import UIKit
 protocol AuthServiceProtocol {
     func login(email: String, password: String) async throws -> AuthUser
     func loginWithGoogle() async throws -> AuthUser
-    func register(name: String, email: String, password: String) async throws -> AuthUser
+    func register(name: String, dateOfBirth: String, email: String, password: String) async throws -> AuthUser
     func resendConfirmationEmail(email: String) async throws
     func requestPasswordResetCode(email: String) async throws -> String
     func verifyPasswordResetCode(email: String, code: String) async throws
@@ -139,8 +139,9 @@ struct AuthService: AuthServiceProtocol {
         return AuthUser(id: user.id, name: resolvedName, email: resolvedEmail)
     }
 
-    func register(name: String, email: String, password: String) async throws -> AuthUser {
+    func register(name: String, dateOfBirth: String, email: String, password: String) async throws -> AuthUser {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedDateOfBirth = dateOfBirth.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedEmail = email
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -165,7 +166,7 @@ struct AuthService: AuthServiceProtocol {
         let requestBody = SupabaseRegisterRequest(
             email: normalizedEmail,
             password: password,
-            data: SupabaseRegisterData(name: trimmedName)
+            data: SupabaseRegisterData(name: trimmedName, dateOfBirth: trimmedDateOfBirth.isEmpty ? nil : trimmedDateOfBirth)
         )
 
         let response = try await sendRequest(
@@ -434,6 +435,12 @@ private struct SupabaseRegisterRequest: Encodable {
 
 private struct SupabaseRegisterData: Encodable {
     let name: String
+    let dateOfBirth: String?
+
+    private enum CodingKeys: String, CodingKey {
+        case name
+        case dateOfBirth = "date_of_birth"
+    }
 }
 
 private struct SupabaseRecoverRequest: Encodable {

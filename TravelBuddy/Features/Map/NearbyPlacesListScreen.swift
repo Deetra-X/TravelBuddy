@@ -2,12 +2,16 @@ import SwiftUI
 import CoreLocation
 
 struct NearbyPlacesListScreen: View {
+    @EnvironmentObject private var sessionManager: SessionManager
+
     let items: [PlaceCardItem]
     let currentLocation: CLLocation?
     let onClose: () -> Void
 
     @State private var searchText: String = ""
     @State private var selectedDistrict: String = "All"
+    @State private var selectedPlace: PlaceCardItem?
+    @State private var showPlaceDetails: Bool = false
 
     var body: some View {
         NavigationStack {
@@ -55,10 +59,30 @@ struct NearbyPlacesListScreen: View {
                     }
                 }
                 .padding(.vertical, 4)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    selectedPlace = item
+                    showPlaceDetails = true
+                }
             }
             .listStyle(.plain)
             .navigationTitle("Places around you")
             .searchable(text: $searchText, prompt: "Search destination")
+            .navigationDestination(isPresented: $showPlaceDetails) {
+                if let item = selectedPlace {
+                    PlaceDetailsScreen(
+                        placeName: item.name,
+                        district: item.subtitle,
+                        fallbackDescription: item.description,
+                        fallbackImageURL: item.imageURL,
+                        fallbackRating: item.rating,
+                        fallbackLatitude: item.coordinate.latitude,
+                        fallbackLongitude: item.coordinate.longitude,
+                        currentLocation: currentLocation
+                    )
+                    .environmentObject(sessionManager)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Back") {

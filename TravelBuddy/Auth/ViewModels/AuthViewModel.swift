@@ -55,13 +55,13 @@ final class AuthViewModel: ObservableObject {
         }
     }
 
-    func register(name: String, email: String, password: String) async -> Bool {
+    func register(name: String, dateOfBirth: String, email: String, password: String) async -> Bool {
         clearError()
         isLoading = true
         defer { isLoading = false }
 
         do {
-            _ = try await service.register(name: name, email: email, password: password)
+            _ = try await service.register(name: name, dateOfBirth: dateOfBirth, email: email, password: password)
             successMessage = "Account is created."
             return true
         } catch {

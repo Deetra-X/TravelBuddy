@@ -1,6 +1,7 @@
 import SwiftUI
 import Foundation
 import Combine
+import CoreLocation
 
 struct PlaceDetail: Identifiable, Hashable {
     let id: String
@@ -387,6 +388,7 @@ final class PlaceDetailsViewModel: ObservableObject {
     @Published private(set) var isLoading: Bool = false
     @Published private(set) var isSubmittingReview: Bool = false
     @Published private(set) var destinationWeather: WeatherSnapshot?
+    @Published private(set) var destinationForecast: [WeatherForecastDay] = []
     @Published private(set) var isDestinationWeatherLoading: Bool = false
     @Published var reviewText: String = ""
     @Published var reviewRating: Double = 5
@@ -533,6 +535,13 @@ final class PlaceDetailsViewModel: ObservableObject {
 
     func refreshDestinationWeather() async {
         guard place.latitude != 0 || place.longitude != 0 || fallbackLatitude != 0 || fallbackLongitude != 0 else {
+            destinationWeather = WeatherSnapshot(
+                cityName: place.district.isEmpty ? place.name : place.district,
+                temperatureCelsius: 0,
+                condition: .unknown,
+                fetchedAt: Date()
+            )
+            destinationForecast = []
             return
         }
 
@@ -545,7 +554,18 @@ final class PlaceDetailsViewModel: ObservableObject {
         do {
             destinationWeather = try await weatherService.fetchCurrentWeather(latitude: latitude, longitude: longitude)
         } catch {
-            destinationWeather = nil
+            destinationWeather = WeatherSnapshot(
+                cityName: place.district.isEmpty ? place.name : place.district,
+                temperatureCelsius: 0,
+                condition: .unknown,
+                fetchedAt: Date()
+            )
+        }
+
+        do {
+            destinationForecast = try await weatherService.fetchThreeDayForecast(latitude: latitude, longitude: longitude)
+        } catch {
+            destinationForecast = []
         }
     }
 }
@@ -557,8 +577,12 @@ struct PlaceDetailsScreen: View {
     }
 
     @EnvironmentObject private var sessionManager: SessionManager
+    @Environment(\.openURL) private var openURL
     @StateObject private var viewModel: PlaceDetailsViewModel
     @State private var selectedTab: PlaceContentTab = .location
+    private let currentLocation: CLLocation?
+    private let fallbackLatitude: Double
+    private let fallbackLongitude: Double
 
     init(
         placeName: String,
@@ -567,8 +591,12 @@ struct PlaceDetailsScreen: View {
         fallbackImageURL: URL?,
         fallbackRating: Double,
         fallbackLatitude: Double,
-        fallbackLongitude: Double
+        fallbackLongitude: Double,
+        currentLocation: CLLocation? = nil
     ) {
+        self.currentLocation = currentLocation
+        self.fallbackLatitude = fallbackLatitude
+        self.fallbackLongitude = fallbackLongitude
         _viewModel = StateObject(
             wrappedValue: PlaceDetailsViewModel(
                 placeName: placeName,
@@ -660,6 +688,35 @@ struct PlaceDetailsScreen: View {
                 .font(.body)
                 .foregroundStyle(Color.travelBody)
                 .fixedSize(horizontal: false, vertical: true)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Directions")
+                    .font(.headline)
+                    .foregroundStyle(Color.travelTitle)
+
+                if let destinationDistanceText {
+                    Text(destinationDistanceText)
+                        .font(.subheadline)
+                        .foregroundStyle(Color.travelBody)
+                }
+
+                Button {
+                    openDirections()
+                } label: {
+                    Label("Open in Maps", systemImage: "location.fill")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                .fill(Color.travelPrimary)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
 
             Divider()
 
@@ -844,23 +901,42 @@ struct PlaceDetailsScreen: View {
             }
 
             if let weather = viewModel.destinationWeather {
-                HStack(spacing: 12) {
-                    Image(systemName: weather.isRainy ? "cloud.rain.fill" : "sun.max.fill")
-                        .font(.title2)
-                        .foregroundStyle(weather.isRainy ? Color.blue : Color.yellow)
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(spacing: 12) {
+                        Image(systemName: weather.symbolName)
+                            .font(.title2)
+                            .foregroundStyle(weather.isRainy ? Color.blue : Color.yellow)
+                            .frame(width: 36)
 
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("\(weather.cityName)")
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(weather.cityName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color.travelTitle)
+
+                            Text("\(weather.temperatureCelsius)°C • \(weather.title)")
+                                .font(.subheadline)
+                                .foregroundStyle(Color.travelBody)
+
+                            Text(weather.description)
+                                .font(.caption)
+                                .foregroundStyle(Color.travelBody)
+                        }
+
+                        Spacer()
+                    }
+
+                    if !viewModel.destinationForecast.isEmpty {
+                        Divider().opacity(0.6)
+
+                        Text("Expected next 3 days")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(Color.travelTitle)
 
-                        Text("\(weather.temperatureCelsius)°C • \(weather.title)")
-                            .font(.subheadline)
-                            .foregroundStyle(Color.travelBody)
-
-                        Text(weather.description)
-                            .font(.caption)
-                            .foregroundStyle(Color.travelBody)
+                        VStack(spacing: 8) {
+                            ForEach(viewModel.destinationForecast) { day in
+                                forecastRow(day)
+                            }
+                        }
                     }
                 }
                 .padding(12)
@@ -875,6 +951,74 @@ struct PlaceDetailsScreen: View {
                     .padding(.vertical, 2)
             }
         }
+    }
+
+    private func forecastRow(_ day: WeatherForecastDay) -> some View {
+        HStack(spacing: 10) {
+            Text(dayLabel(for: day.date))
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.travelTitle)
+                .frame(width: 54, alignment: .leading)
+
+            Image(systemName: day.symbolName)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.travelPrimary)
+                .frame(width: 20)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(day.title)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.travelTitle)
+
+                Text(day.description)
+                    .font(.caption2)
+                    .foregroundStyle(Color.travelBody)
+            }
+
+            Spacer()
+
+            Text("\(day.highTemperatureCelsius)° / \(day.lowTemperatureCelsius)°")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.travelTitle)
+        }
+        .padding(.vertical, 6)
+    }
+
+    private func dayLabel(for date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "E"
+        return formatter.string(from: date)
+    }
+
+    private var resolvedCoordinate: CLLocationCoordinate2D {
+        let latitude = viewModel.place.latitude == 0 ? fallbackLatitude : viewModel.place.latitude
+        let longitude = viewModel.place.longitude == 0 ? fallbackLongitude : viewModel.place.longitude
+        return CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
+    }
+
+    private var destinationDistanceText: String? {
+        guard let currentLocation else {
+            return nil
+        }
+
+        let destinationLocation = CLLocation(latitude: resolvedCoordinate.latitude, longitude: resolvedCoordinate.longitude)
+        let distanceInKm = currentLocation.distance(from: destinationLocation) / 1000
+        return String(format: "Approx. %.1f km from your location", distanceInKm)
+    }
+
+    private func openDirections() {
+        let latitude = resolvedCoordinate.latitude
+        let longitude = resolvedCoordinate.longitude
+
+        guard latitude != 0 || longitude != 0 else {
+            return
+        }
+
+        guard let url = URL(string: "http://maps.apple.com/?daddr=\(latitude),\(longitude)&dirflg=d") else {
+            return
+        }
+
+        openURL(url)
     }
 }
 
