@@ -3,6 +3,134 @@ import CoreLocation
 import Combine
 import MapKit
 
+private func plannerNormalizeText(_ value: String) -> String {
+    value
+        .lowercased()
+        .components(separatedBy: CharacterSet.alphanumerics.inverted)
+        .filter { !$0.isEmpty }
+        .joined(separator: " ")
+}
+
+private func plannerIsPlaceholderURL(_ url: URL?) -> Bool {
+    guard let host = url?.host?.lowercased() else { return false }
+    return host.contains("example.com")
+}
+
+private func plannerResolvedImageURL(for place: ManualPlanPlace, from dbPlaces: [PlaceCardItem]) -> URL? {
+    let normalizedName = plannerNormalizeText(place.name)
+    let normalizedDistrict = plannerNormalizeText(place.district)
+
+    let scoredCandidates: [(url: URL, score: Double)] = dbPlaces.compactMap { dbPlace in
+        guard let imageURL = dbPlace.imageURL else { return nil }
+
+        let dbName = plannerNormalizeText(dbPlace.name)
+        let dbDistrict = plannerNormalizeText(dbPlace.subtitle)
+
+        let nameScore: Double
+        if dbName == normalizedName {
+            nameScore = 0.0
+        } else if dbName.contains(normalizedName) || normalizedName.contains(dbName) {
+            nameScore = 0.35
+        } else {
+            let placeTokens = Set(normalizedName.split(separator: " ").map(String.init))
+            let dbTokens = Set(dbName.split(separator: " ").map(String.init))
+            let overlap = placeTokens.intersection(dbTokens).count
+            guard overlap > 0 else { return nil }
+            nameScore = 0.8
+        }
+
+        let districtBonus = (dbDistrict == normalizedDistrict) ? -0.2 : 0.0
+        let coordinateScore = min(hypot(dbPlace.coordinate.latitude - place.latitude, dbPlace.coordinate.longitude - place.longitude), 1.0)
+        let finalScore = nameScore + districtBonus + coordinateScore
+
+        guard finalScore <= 1.35 else { return nil }
+        return (imageURL, finalScore)
+    }
+
+    if let best = scoredCandidates.min(by: { $0.score < $1.score }) {
+        return best.url
+    }
+
+    if plannerIsPlaceholderURL(place.imageURL) {
+        return nil
+    }
+
+    return place.imageURL
+}
+
+private struct ManualPlannerImageRecord: Decodable {
+    let id: String
+    let district: String
+    let name: String
+    let description: String
+    let rating: Double
+    let latitude: Double
+    let longitude: Double
+    let imageURLString: String?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case district
+        case name
+        case description
+        case rating
+        case latitude
+        case longitude
+        case imageURLString = "image_url"
+    }
+
+    func toPlaceCardItem() -> PlaceCardItem {
+        PlaceCardItem(
+            id: id,
+            wishlistPlaceId: id,
+            wishlistSource: .manualPlannerPlaces,
+            name: name,
+            description: description,
+            subtitle: district,
+            rating: rating,
+            coordinate: CLLocationCoordinate2D(latitude: latitude, longitude: longitude),
+            accentHex: "0D47A1",
+            imageURL: imageURLString.flatMap(URL.init(string:))
+        )
+    }
+}
+
+private func fetchManualPlannerPlaceCards() async throws -> [PlaceCardItem] {
+    guard AuthEndpoints.isConfigured,
+          let baseURL = AuthEndpoints.baseURL else {
+        return []
+    }
+
+    guard var components = URLComponents(url: baseURL.appending(path: "/rest/v1/manual_planner_places"), resolvingAgainstBaseURL: false) else {
+        return []
+    }
+
+    components.queryItems = [
+        URLQueryItem(name: "select", value: "id,district,name,description,rating,latitude,longitude,image_url"),
+        URLQueryItem(name: "order", value: "rating.desc")
+    ]
+
+    guard let url = components.url else {
+        return []
+    }
+
+    var request = URLRequest(url: url)
+    request.httpMethod = "GET"
+    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    request.setValue("application/json", forHTTPHeaderField: "Accept")
+    request.setValue(SupabaseConfig.anonKey, forHTTPHeaderField: "apikey")
+    request.setValue("Bearer \(SupabaseConfig.anonKey)", forHTTPHeaderField: "Authorization")
+
+    let (data, response) = try await URLSession.shared.data(for: request)
+    guard let httpResponse = response as? HTTPURLResponse,
+          (200...299).contains(httpResponse.statusCode) else {
+        return []
+    }
+
+    let decoded = try JSONDecoder().decode([ManualPlannerImageRecord].self, from: data)
+    return decoded.map { $0.toPlaceCardItem() }
+}
+
 struct ManualTripPlannerScreen: View {
     private enum PlannerStep {
         case category
@@ -15,6 +143,9 @@ struct ManualTripPlannerScreen: View {
     @State private var selectedTripDays: Int = 1
     @State private var showingPlanDates: Bool = false
     @State private var showingPlannedTrip: Bool = false
+    @State private var placeImageDBRecords: [PlaceCardItem] = []
+
+    var onPlanCompleted: (() -> Void)? = nil
 
     var body: some View {
         ZStack {
@@ -95,6 +226,7 @@ struct ManualTripPlannerScreen: View {
                                     ManualPlanPlaceCard(
                                         place: place,
                                         isSelected: selectedDestinationKeys.contains(placeSelectionKey(place)),
+                                        imageURL: resolvedImageURL(for: place),
                                         onToggleSelection: {
                                             toggleDestination(place)
                                         }
@@ -166,7 +298,17 @@ struct ManualTripPlannerScreen: View {
             )
         }
         .fullScreenCover(isPresented: $showingPlannedTrip) {
-            PlannedTripScreen(initialDays: selectedTripDays, selectedDestinations: selectedDestinations)
+            PlannedTripScreen(
+                initialDays: selectedTripDays,
+                selectedDestinations: selectedDestinations,
+                onPlanCompleted: {
+                    showingPlannedTrip = false
+                    onPlanCompleted?()
+                }
+            )
+        }
+        .task {
+            await loadPlaceImageURLsFromDB()
         }
     }
 
@@ -213,6 +355,21 @@ struct ManualTripPlannerScreen: View {
 
     private func placeSelectionKey(_ place: ManualPlanPlace) -> String {
         "\(place.category.dbValue)-\(place.name)-\(place.district)"
+    }
+
+    private func resolvedImageURL(for place: ManualPlanPlace) -> URL? {
+        plannerResolvedImageURL(for: place, from: placeImageDBRecords)
+    }
+
+    private func loadPlaceImageURLsFromDB() async {
+        do {
+            async let manualPlannerPlaces = fetchManualPlannerPlaceCards()
+            async let places = NearbyPlacesService().fetchPlaces()
+            let merged = try await manualPlannerPlaces + places
+            placeImageDBRecords = merged
+        } catch {
+            return
+        }
     }
 
     private func toggleDestination(_ place: ManualPlanPlace) {
@@ -359,13 +516,18 @@ private struct PlannedTripScreen: View {
     @State private var showingDestinationPicker: Bool = false
     @State private var showingPlannedRoute: Bool = false
     @StateObject private var plannerLocationManager = PlannerLocationManager()
+    @State private var placeImageDBRecords: [PlaceCardItem] = []
 
     let selectedDestinations: [ManualPlanPlace]
+    var onPlanCompleted: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var sessionManager: SessionManager
+    @EnvironmentObject private var ongoingTripViewModel: OngoingTripViewModel
 
-    init(initialDays: Int, selectedDestinations: [ManualPlanPlace]) {
+    init(initialDays: Int, selectedDestinations: [ManualPlanPlace], onPlanCompleted: @escaping () -> Void = {}) {
         self.selectedDestinations = selectedDestinations
+        self.onPlanCompleted = onPlanCompleted
         let safeDays = max(1, initialDays)
         _dayPlans = State(initialValue: (1...safeDays).map { day in
             TripDayPlan(dayNumber: day, date: Calendar.current.date(byAdding: .day, value: day - 1, to: Date()) ?? Date(), locations: [])
@@ -393,13 +555,22 @@ private struct PlannedTripScreen: View {
             }
             .onAppear {
                 plannerLocationManager.requestLocationAccess()
+                Task {
+                    await loadPlaceImageURLsFromDB()
+                }
             }
             .navigationDestination(isPresented: $showingPlannedRoute) {
-                PlannedTripRouteScreen(dayPlans: dayPlans)
+                PlannedTripRouteScreen(dayPlans: dayPlans) {
+                    onPlanCompleted()
+                    dismiss()
+                }
             }
             .safeAreaInset(edge: .bottom) {
                 Button {
-                    showingPlannedRoute = true
+                    Task {
+                        await saveTripToOngoingIfPossible()
+                        showingPlannedRoute = true
+                    }
                 } label: {
                     Text("Plan Trip")
                         .font(.headline)
@@ -420,6 +591,53 @@ private struct PlannedTripScreen: View {
                 .background(Color.travelBackground.opacity(0.94))
             }
         }
+    }
+
+    private func saveTripToOngoingIfPossible() async {
+        guard let session = sessionManager.currentSession else { return }
+
+        let sortedPlans = dayPlans.sorted { $0.dayNumber < $1.dayNumber }
+        let allLocations = sortedPlans.flatMap(\.locations)
+        guard !allLocations.isEmpty else { return }
+
+        let title = allLocations.count == 1 ? allLocations[0].title : "\(allLocations.count)-stop journey"
+        let subtitle = "\(sortedPlans.count) day\(sortedPlans.count == 1 ? "" : "s") • \(allLocations.count) places"
+
+        let dateFormatter = ISO8601DateFormatter()
+        let drafts: [PlannedTripStopDraft] = sortedPlans.flatMap { dayPlan in
+            dayPlan.locations.enumerated().map { index, stop in
+                let imageName = selectedDestinations.first(where: {
+                    $0.name == stop.title && $0.district == stop.timeRange
+                })?.category.assetName
+
+                let resolvedImageURLString = selectedDestinations.first(where: {
+                    $0.name == stop.title && $0.district == stop.timeRange
+                }).flatMap { matched in
+                    resolvedImageURL(for: matched)?.absoluteString
+                }
+
+                return PlannedTripStopDraft(
+                    dayNumber: dayPlan.dayNumber,
+                    sortOrder: index,
+                    title: stop.title,
+                    subtitle: stop.timeRange,
+                    description: stop.description,
+                    latitude: stop.latitude,
+                    longitude: stop.longitude,
+                    imageName: imageName,
+                    imageURLString: resolvedImageURLString,
+                    plannedDateISO: dateFormatter.string(from: dayPlan.date)
+                )
+            }
+        }
+
+        await ongoingTripViewModel.saveTrip(
+            session: session,
+            sourceType: "manual_planner",
+            title: title,
+            subtitle: subtitle,
+            stops: drafts
+        )
     }
 
     private var dayTabs: some View {
@@ -655,14 +873,30 @@ private struct PlannedTripScreen: View {
                 longitude: place.longitude,
                 destinationKey: destinationKey(for: place),
                 description: place.description,
-                imageURL: place.imageURL
+                imageURL: resolvedImageURL(for: place)
             )
         )
+    }
+
+    private func resolvedImageURL(for place: ManualPlanPlace) -> URL? {
+        plannerResolvedImageURL(for: place, from: placeImageDBRecords)
+    }
+
+    private func loadPlaceImageURLsFromDB() async {
+        do {
+            async let manualPlannerPlaces = fetchManualPlannerPlaceCards()
+            async let places = NearbyPlacesService().fetchPlaces()
+            let merged = try await manualPlannerPlaces + places
+            placeImageDBRecords = merged
+        } catch {
+            return
+        }
     }
 }
 
 private struct PlannedTripRouteScreen: View {
     let dayPlans: [TripDayPlan]
+    var onDone: () -> Void
 
     private var routeStops: [TripLocationStop] {
         dayPlans.flatMap(\.locations)
@@ -741,6 +975,26 @@ private struct PlannedTripRouteScreen: View {
         }
         .navigationTitle("Trip Plan")
         .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .bottom) {
+            Button {
+                onDone()
+            } label: {
+                Text("Done & Go Home")
+                    .font(.headline)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(
+                        RoundedRectangle(cornerRadius: 14, style: .continuous)
+                            .fill(Color.travelPrimary)
+                    )
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 8)
+            .background(Color.travelBackground.opacity(0.94))
+        }
     }
 
     private func openDirections(from sourceStop: TripLocationStop, to destinationStop: TripLocationStop) {
@@ -1091,6 +1345,7 @@ private struct CategoryNameIndicator: View {
 private struct ManualPlanPlaceCard: View {
     let place: ManualPlanPlace
     let isSelected: Bool
+    let imageURL: URL?
     var onToggleSelection: () -> Void
 
     var body: some View {
@@ -1105,16 +1360,25 @@ private struct ManualPlanPlaceCard: View {
                         )
                     )
 
-                if let imageURL = place.imageURL {
+                if let imageURL {
                     AsyncImage(url: imageURL) { phase in
-                        if let image = phase.image {
+                        switch phase {
+                        case .empty:
+                            Color.clear
+                        case .success(let image):
                             image
                                 .resizable()
                                 .scaledToFill()
-                        } else {
+                        case .failure:
+                            Color.clear
+                        @unknown default:
                             Color.clear
                         }
                     }
+                } else if let localImage = localImage(for: place) {
+                    localImage
+                        .resizable()
+                        .scaledToFill()
                 }
             }
             .frame(height: 140)
@@ -1178,6 +1442,37 @@ private struct ManualPlanPlaceCard: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .fill(Color.white.opacity(0.9))
         )
+        .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .onTapGesture {
+            onToggleSelection()
+        }
+    }
+
+    private func localImage(for place: ManualPlanPlace) -> Image? {
+        let preferredNames = [
+            place.category.assetName,
+            place.name.lowercased().replacingOccurrences(of: "'", with: "").replacingOccurrences(of: " ", with: "_")
+        ]
+
+        for preferredName in preferredNames {
+            let candidates = [
+                preferredName,
+                "\(preferredName).JPG",
+                "\(preferredName).jpg",
+                "Images/\(preferredName).JPG",
+                "Images/\(preferredName).jpg",
+                "Assets/Images/\(preferredName).JPG",
+                "Assets/Images/\(preferredName).jpg"
+            ]
+
+            for candidate in candidates {
+                if let uiImage = UIImage(named: candidate) {
+                    return Image(uiImage: uiImage)
+                }
+            }
+        }
+
+        return nil
     }
 }
 

@@ -5,6 +5,9 @@ import CoreLocation
 struct HomeScreen: View {
     var onLogout: () -> Void
 
+    @EnvironmentObject private var sessionManager: SessionManager
+    @EnvironmentObject private var ongoingTripViewModel: OngoingTripViewModel
+
     @StateObject private var locationManager = UserLocationManager()
     @StateObject private var weatherViewModel = WeatherViewModel()
     @StateObject private var nearbyPlacesViewModel = NearbyPlacesViewModel()
@@ -31,7 +34,15 @@ struct HomeScreen: View {
 
             Group {
                 if contentTab == .myTrip {
-                    ManualTripPlannerScreen()
+                    ManualTripPlannerScreen {
+                        selectedTab = .journey
+                        contentTab = .journey
+                    }
+                } else if contentTab == .journey {
+                    JourneyTripsScreen {
+                        selectedTab = .myTrip
+                        contentTab = .myTrip
+                    }
                 } else if contentTab == .wishlist {
                     WishlistScreen()
                 } else if contentTab == .location {
@@ -89,7 +100,10 @@ struct HomeScreen: View {
                             }
 
                             HomeSectionHeader(title: "Ongoing trip", trailingText: "Active now")
-                            OngoingTripCard(item: HomeMockData.ongoingTrip)
+                            OngoingTripCard(item: activeOngoingTripCardItem) {
+                                selectedTab = .journey
+                                contentTab = .journey
+                            }
                         }
                         .padding(.horizontal, 16)
                         .padding(.top, 8)
@@ -176,6 +190,12 @@ struct HomeScreen: View {
             } else {
                 quickPlans = QuickPlansGenerator.generatePlans(from: selectedActivities)
             }
+
+            if let session = sessionManager.currentSession {
+                Task {
+                    await ongoingTripViewModel.loadTrips(session: session, force: false)
+                }
+            }
         }
         .onReceive(locationManager.$location) { location in
             weatherViewModel.refreshIfNeeded(from: location)
@@ -246,6 +266,18 @@ struct HomeScreen: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private var activeOngoingTripCardItem: OngoingTripItem {
+        guard let latest = ongoingTripViewModel.latestTrip else {
+            return HomeMockData.ongoingTrip
+        }
+
+        return OngoingTripItem(
+            title: latest.title,
+            progressText: latest.displayProgressText,
+            progress: latest.resolvedProgress
+        )
     }
 
     private var homeBanner: some View {

@@ -421,37 +421,43 @@ struct ExperienceCard: View {
 
 struct OngoingTripCard: View {
     let item: OngoingTripItem
+    var onTap: (() -> Void)? = nil
 
     var body: some View {
-        HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(Color.travelPrimary.opacity(0.28))
-                .frame(width: 46, height: 46)
-                .overlay {
-                    Image(systemName: "mountain.2.fill")
-                        .foregroundStyle(Color.travelPrimary)
+        Button {
+            onTap?()
+        } label: {
+            HStack(spacing: 12) {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.travelPrimary.opacity(0.28))
+                    .frame(width: 46, height: 46)
+                    .overlay {
+                        Image(systemName: "mountain.2.fill")
+                            .foregroundStyle(Color.travelPrimary)
+                    }
+
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(item.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.travelTitle)
+
+                    Text(item.progressText)
+                        .font(.caption)
+                        .foregroundStyle(Color.travelBody)
+
+                    ProgressView(value: item.progress)
+                        .progressViewStyle(.linear)
+                        .tint(Color.travelPrimary)
                 }
 
-            VStack(alignment: .leading, spacing: 6) {
-                Text(item.title)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color.travelTitle)
-
-                Text(item.progressText)
-                    .font(.caption)
-                    .foregroundStyle(Color.travelBody)
-
-                ProgressView(value: item.progress)
-                    .progressViewStyle(.linear)
-                    .tint(Color.travelPrimary)
+                Spacer()
             }
-
-            Spacer()
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    .fill(Color.white.opacity(0.78))
+            )
         }
-        .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(Color.white.opacity(0.78))
-        )
+        .buttonStyle(.plain)
     }
 }

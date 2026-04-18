@@ -8,6 +8,7 @@ private enum AppRoute {
 
 struct RootView: View {
     @StateObject private var sessionManager = SessionManager()
+    @StateObject private var ongoingTripViewModel = OngoingTripViewModel()
     @State private var route: AppRoute = .onboarding
     @State private var isInitializing = true
 
@@ -61,5 +62,6 @@ struct RootView: View {
             }
         }
         .environmentObject(sessionManager)
+        .environmentObject(ongoingTripViewModel)
     }
 }
