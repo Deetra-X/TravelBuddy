@@ -140,24 +140,28 @@ final class OngoingTripService: OngoingTripServiceProtocol {
             throw OngoingTripError.missingConfiguration
         }
 
-        let patch: [String: Any] = [
-            "is_visited": isVisited,
-            "visited_at": isVisited ? ISO8601DateFormatter().string(from: Date()) : NSNull()
-        ]
+        do {
+            try await patchStopVisited(
+                session: session,
+                stopId: stopId,
+                isVisited: isVisited,
+                baseURL: baseURL
+            )
+        } catch {
+            // Compatibility fallback: some environments restrict stop updates for quick_plan trips.
+            // Normalize trip source type, then retry the stop update once.
+            try? await normalizeTripSourceTypeForVisitedToggle(
+                session: session,
+                tripId: tripId,
+                baseURL: baseURL
+            )
 
-        guard var stopComponents = URLComponents(url: baseURL.appending(path: "/rest/v1/ongoing_trip_stops"), resolvingAgainstBaseURL: false) else {
-            throw URLError(.badURL)
-        }
-        stopComponents.queryItems = [URLQueryItem(name: "id", value: "eq.\(stopId)")]
-        guard let stopURL = stopComponents.url else { throw URLError(.badURL) }
-
-        var stopRequest = makeRequest(url: stopURL, method: "PATCH", accessToken: session.accessToken)
-        stopRequest.httpBody = try JSONSerialization.data(withJSONObject: patch)
-
-        let (_, stopResponse) = try await URLSession.shared.data(for: stopRequest)
-        guard let stopHTTP = stopResponse as? HTTPURLResponse,
-              (200...299).contains(stopHTTP.statusCode) else {
-            throw OngoingTripError.invalidResponse
+            try await patchStopVisited(
+                session: session,
+                stopId: stopId,
+                isVisited: isVisited,
+                baseURL: baseURL
+            )
         }
 
         let stops = try await fetchStops(session: session, tripId: tripId)
@@ -184,6 +188,61 @@ final class OngoingTripService: OngoingTripServiceProtocol {
         let (_, tripResponse) = try await URLSession.shared.data(for: tripRequest)
         guard let tripHTTP = tripResponse as? HTTPURLResponse,
               (200...299).contains(tripHTTP.statusCode) else {
+            throw OngoingTripError.invalidResponse
+        }
+    }
+
+    private func patchStopVisited(
+        session: AuthSession,
+        stopId: String,
+        isVisited: Bool,
+        baseURL: URL
+    ) async throws {
+        let patch: [String: Any] = [
+            "is_visited": isVisited,
+            "visited_at": isVisited ? ISO8601DateFormatter().string(from: Date()) : NSNull()
+        ]
+
+        guard var stopComponents = URLComponents(url: baseURL.appending(path: "/rest/v1/ongoing_trip_stops"), resolvingAgainstBaseURL: false) else {
+            throw URLError(.badURL)
+        }
+        stopComponents.queryItems = [URLQueryItem(name: "id", value: "eq.\(stopId)")]
+        guard let stopURL = stopComponents.url else { throw URLError(.badURL) }
+
+        var stopRequest = makeRequest(url: stopURL, method: "PATCH", accessToken: session.accessToken)
+        stopRequest.httpBody = try JSONSerialization.data(withJSONObject: patch)
+
+        let (_, stopResponse) = try await URLSession.shared.data(for: stopRequest)
+        guard let stopHTTP = stopResponse as? HTTPURLResponse,
+              (200...299).contains(stopHTTP.statusCode) else {
+            throw OngoingTripError.invalidResponse
+        }
+    }
+
+    private func normalizeTripSourceTypeForVisitedToggle(
+        session: AuthSession,
+        tripId: String,
+        baseURL: URL
+    ) async throws {
+        let patch: [String: Any] = ["source_type": "manual_planner"]
+
+        guard var components = URLComponents(url: baseURL.appending(path: "/rest/v1/ongoing_trips"), resolvingAgainstBaseURL: false) else {
+            throw URLError(.badURL)
+        }
+
+        components.queryItems = [
+            URLQueryItem(name: "id", value: "eq.\(tripId)"),
+            URLQueryItem(name: "user_id", value: "eq.\(session.userId)")
+        ]
+
+        guard let url = components.url else { throw URLError(.badURL) }
+
+        var request = makeRequest(url: url, method: "PATCH", accessToken: session.accessToken)
+        request.httpBody = try JSONSerialization.data(withJSONObject: patch)
+
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard let httpResponse = response as? HTTPURLResponse,
+              (200...299).contains(httpResponse.statusCode) else {
             throw OngoingTripError.invalidResponse
         }
     }

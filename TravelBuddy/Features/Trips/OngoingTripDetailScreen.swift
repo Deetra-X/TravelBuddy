@@ -321,6 +321,7 @@ struct OngoingTripDetailScreen: View {
 				cardShape
 					.stroke(Color.white.opacity(0.12), lineWidth: 1)
 			)
+			.contentShape(cardShape)
 		}
 		.buttonStyle(.plain)
 	}

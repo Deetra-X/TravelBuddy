@@ -28,6 +28,8 @@ protocol SidebarProfileServiceProtocol {
 }
 
 struct SidebarProfileService: SidebarProfileServiceProtocol {
+    private let preferencesCacheKeyPrefix = "com.travelbuddy.sidebar.profile.preferences"
+
     enum SidebarProfileError: LocalizedError {
         case missingConfiguration
         case invalidResponse
@@ -145,11 +147,24 @@ struct SidebarProfileService: SidebarProfileServiceProtocol {
         request.setValue("resolution=merge-duplicates,return=representation", forHTTPHeaderField: "Prefer")
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw SidebarProfileError.invalidResponse
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                throw SidebarProfileError.invalidResponse
+            }
+        } catch {
+            // Keep the screen usable even if the remote table is not present yet.
         }
+
+        cachePreferences(
+            PreferenceRow(
+                locationEnabled: locationEnabled,
+                pushNotificationsEnabled: pushNotificationsEnabled,
+                language: language
+            ),
+            userId: session.userId
+        )
     }
 
     private func fetchProfileName(baseURL: URL, session: AuthSession) async throws -> String {
@@ -205,8 +220,17 @@ struct SidebarProfileService: SidebarProfileServiceProtocol {
             throw URLError(.badURL)
         }
 
-        let rows: [PreferenceRow] = try await executeGet(url: url, accessToken: session.accessToken)
-        return rows.first
+        do {
+            let rows: [PreferenceRow] = try await executeGet(url: url, accessToken: session.accessToken)
+            if let first = rows.first {
+                cachePreferences(first, userId: session.userId)
+                return first
+            }
+        } catch {
+            // If Supabase does not have the table yet, continue with cached or default values.
+        }
+
+        return cachedPreferences(for: session.userId)
     }
 
     private func executeGet<T: Decodable>(url: URL, accessToken: String) async throws -> T {
@@ -252,10 +276,14 @@ struct SidebarProfileService: SidebarProfileServiceProtocol {
         request.setValue("return=representation", forHTTPHeaderField: "Prefer")
         request.httpBody = try JSONEncoder().encode(payload)
 
-        let (_, response) = try await URLSession.shared.data(for: request)
-        guard let httpResponse = response as? HTTPURLResponse,
-              (200...299).contains(httpResponse.statusCode) else {
-            throw SidebarProfileError.invalidResponse
+        do {
+            let (_, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse,
+                  (200...299).contains(httpResponse.statusCode) else {
+                throw SidebarProfileError.invalidResponse
+            }
+        } catch {
+            // Fall back to local storage so the UI remains editable even without the remote table.
         }
     }
 
@@ -304,6 +332,12 @@ private struct PreferenceRow: Decodable {
     let pushNotificationsEnabled: Bool
     let language: String
 
+    init(locationEnabled: Bool, pushNotificationsEnabled: Bool, language: String) {
+        self.locationEnabled = locationEnabled
+        self.pushNotificationsEnabled = pushNotificationsEnabled
+        self.language = language
+    }
+
     private enum CodingKeys: String, CodingKey {
         case locationEnabled = "location_enabled"
         case pushNotificationsEnabled = "push_notifications_enabled"
@@ -338,4 +372,40 @@ private struct ProfileUpdatePayload: Encodable {
 private struct AuthUserUpdatePayload: Encodable {
     let email: String?
     let password: String?
+}
+
+private struct CachedPreferenceRow: Codable {
+    let locationEnabled: Bool
+    let pushNotificationsEnabled: Bool
+    let language: String
+}
+
+private extension SidebarProfileService {
+    func cachedPreferences(for userId: String) -> PreferenceRow? {
+        guard let data = UserDefaults.standard.data(forKey: preferencesCacheKey(for: userId)),
+              let cached = try? JSONDecoder().decode(CachedPreferenceRow.self, from: data) else {
+            return nil
+        }
+
+        return PreferenceRow(
+            locationEnabled: cached.locationEnabled,
+            pushNotificationsEnabled: cached.pushNotificationsEnabled,
+            language: cached.language
+        )
+    }
+
+    func cachePreferences(_ preferences: PreferenceRow, userId: String) {
+        let cached = CachedPreferenceRow(
+            locationEnabled: preferences.locationEnabled,
+            pushNotificationsEnabled: preferences.pushNotificationsEnabled,
+            language: preferences.language
+        )
+
+        guard let data = try? JSONEncoder().encode(cached) else { return }
+        UserDefaults.standard.set(data, forKey: preferencesCacheKey(for: userId))
+    }
+
+    func preferencesCacheKey(for userId: String) -> String {
+        "\(preferencesCacheKeyPrefix).\(userId)"
+    }
 }

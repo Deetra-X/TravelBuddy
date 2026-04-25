@@ -424,6 +424,8 @@ struct OngoingTripCard: View {
     var onTap: (() -> Void)? = nil
 
     var body: some View {
+        let cardShape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+
         Button {
             onTap?()
         } label: {
@@ -454,9 +456,10 @@ struct OngoingTripCard: View {
             }
             .padding(14)
             .background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                cardShape
                     .fill(Color.white.opacity(0.78))
             )
+            .contentShape(cardShape)
         }
         .buttonStyle(.plain)
     }

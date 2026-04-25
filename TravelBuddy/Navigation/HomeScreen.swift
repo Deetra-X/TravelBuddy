@@ -198,6 +198,9 @@ struct HomeScreen: View {
         .fullScreenCover(isPresented: $showAdvancedSettings) {
             AdvancedSettingsScreen {
                 showAdvancedSettings = false
+            } onLogout: {
+                showAdvancedSettings = false
+                onLogout()
             }
         }
         .fullScreenCover(isPresented: $showAllNearbyPlaces) {

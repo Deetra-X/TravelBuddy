@@ -111,6 +111,31 @@ final class OngoingTripViewModel: ObservableObject {
 		trips.first(where: { $0.id == id })
 	}
 
+	func clearAllTrips(session: AuthSession) async -> Bool {
+		let tripIds = trips.map(\.id)
+
+		for tripId in tripIds {
+			do {
+				try await service.deleteTrip(session: session, tripId: tripId)
+			} catch {
+				errorMessage = error.localizedDescription
+				return false
+			}
+		}
+
+		trips = []
+		errorMessage = nil
+		clearLocalCache(for: session.userId)
+		return true
+	}
+
+	func clearLocalCache(for userId: String) {
+		UserDefaults.standard.removeObject(forKey: cacheKey(for: userId))
+		if activeUserId == userId {
+			trips = []
+		}
+	}
+
 	private func saveCache(for userId: String) {
 		guard let data = try? JSONEncoder().encode(trips) else { return }
 		UserDefaults.standard.set(data, forKey: cacheKey(for: userId))
