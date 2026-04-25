@@ -9,8 +9,21 @@ private enum AppRoute {
 struct RootView: View {
     @StateObject private var sessionManager = SessionManager()
     @StateObject private var ongoingTripViewModel = OngoingTripViewModel()
+    @StateObject private var authViewModel: AuthViewModel
     @State private var route: AppRoute = .onboarding
     @State private var isInitializing = true
+
+    init() {
+        let sharedSessionManager = SessionManager()
+        _sessionManager = StateObject(wrappedValue: sharedSessionManager)
+        _ongoingTripViewModel = StateObject(wrappedValue: OngoingTripViewModel())
+        _authViewModel = StateObject(
+            wrappedValue: AuthViewModel(
+                service: AuthService(sessionManager: sharedSessionManager),
+                sessionManager: sharedSessionManager
+            )
+        )
+    }
 
     var body: some View {
         Group {
@@ -48,7 +61,7 @@ struct RootView: View {
                         }
                     )
                 case .auth:
-                    AuthFlowView {
+                    AuthFlowView(viewModel: authViewModel) {
                         route = .home
                     }
                 case .home:

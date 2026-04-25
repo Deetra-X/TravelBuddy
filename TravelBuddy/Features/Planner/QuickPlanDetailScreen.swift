@@ -216,7 +216,7 @@ struct QuickPlanDetailScreen: View {
             )
         }
 
-        await ongoingTripViewModel.saveTrip(
+        let didSave = await ongoingTripViewModel.saveTrip(
             session: session,
             sourceType: "quick_plan",
             title: plan.title,
@@ -224,7 +224,7 @@ struct QuickPlanDetailScreen: View {
             stops: stops
         )
 
-        if ongoingTripViewModel.errorMessage == nil {
+        if didSave {
             onClose()
             onTripPlanned?()
         }

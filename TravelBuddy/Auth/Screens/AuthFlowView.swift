@@ -11,9 +11,9 @@ private enum AuthRoute: Hashable {
 }
 
 struct AuthFlowView: View {
+    @ObservedObject var viewModel: AuthViewModel
     let onLoginSuccess: () -> Void
 
-    @StateObject private var viewModel = AuthViewModel()
     @StateObject private var preferencesViewModel = UserPreferencesViewModel()
     @State private var path: [AuthRoute] = []
 

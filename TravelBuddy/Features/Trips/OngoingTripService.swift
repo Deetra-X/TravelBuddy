@@ -38,11 +38,34 @@ final class OngoingTripService: OngoingTripServiceProtocol {
             URLQueryItem(name: "order", value: "updated_at.desc")
         ]
 
-        guard let url = components.url else { throw URLError(.badURL) }
-        var trips: [OngoingTripRecord] = try await executeGet(url: url, accessToken: session.accessToken)
+        guard let strictURL = components.url else { throw URLError(.badURL) }
+
+        let fetchedTrips: [OngoingTripRecord]
+        do {
+            fetchedTrips = try await executeGet(url: strictURL, accessToken: session.accessToken)
+        } catch {
+            guard var fallbackComponents = URLComponents(url: baseURL.appending(path: "/rest/v1/ongoing_trips"), resolvingAgainstBaseURL: false) else {
+                throw URLError(.badURL)
+            }
+
+            fallbackComponents.queryItems = [
+                URLQueryItem(name: "select", value: "*"),
+                URLQueryItem(name: "user_id", value: "eq.\(session.userId)"),
+                URLQueryItem(name: "order", value: "updated_at.desc")
+            ]
+
+            guard let fallbackURL = fallbackComponents.url else { throw URLError(.badURL) }
+            fetchedTrips = try await executeGet(url: fallbackURL, accessToken: session.accessToken)
+        }
+
+        var trips = fetchedTrips
 
         for index in trips.indices {
-            trips[index].stops = try await fetchStops(session: session, tripId: trips[index].id)
+            do {
+                trips[index].stops = try await fetchStops(session: session, tripId: trips[index].id)
+            } catch {
+                trips[index].stops = []
+            }
         }
 
         return trips

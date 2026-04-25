@@ -63,7 +63,7 @@ final class OngoingTripViewModel: ObservableObject {
 		title: String,
 		subtitle: String,
 		stops: [PlannedTripStopDraft]
-	) async {
+	) async -> Bool {
 		do {
 			try await service.saveTrip(
 				session: session,
@@ -73,8 +73,10 @@ final class OngoingTripViewModel: ObservableObject {
 				stops: stops
 			)
 			await loadTrips(session: session, force: true)
+			return true
 		} catch {
 			errorMessage = error.localizedDescription
+			return false
 		}
 	}
 

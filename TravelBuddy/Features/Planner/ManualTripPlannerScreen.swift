@@ -517,6 +517,8 @@ private struct PlannedTripScreen: View {
     @State private var showingPlannedRoute: Bool = false
     @StateObject private var plannerLocationManager = PlannerLocationManager()
     @State private var placeImageDBRecords: [PlaceCardItem] = []
+    @State private var showSaveErrorAlert: Bool = false
+    @State private var saveErrorMessage: String = "Failed to save trip."
 
     let selectedDestinations: [ManualPlanPlace]
     var onPlanCompleted: () -> Void
@@ -568,8 +570,13 @@ private struct PlannedTripScreen: View {
             .safeAreaInset(edge: .bottom) {
                 Button {
                     Task {
-                        await saveTripToOngoingIfPossible()
-                        showingPlannedRoute = true
+                        let didSave = await saveTripToOngoingIfPossible()
+                        if didSave {
+                            showingPlannedRoute = true
+                        } else {
+                            saveErrorMessage = ongoingTripViewModel.errorMessage ?? "Failed to save trip. Please try again."
+                            showSaveErrorAlert = true
+                        }
                     }
                 } label: {
                     Text("Plan Trip")
@@ -590,15 +597,20 @@ private struct PlannedTripScreen: View {
                 .padding(.bottom, 8)
                 .background(Color.travelBackground.opacity(0.94))
             }
+            .alert("Could not save trip", isPresented: $showSaveErrorAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(saveErrorMessage)
+            }
         }
     }
 
-    private func saveTripToOngoingIfPossible() async {
-        guard let session = sessionManager.currentSession else { return }
+    private func saveTripToOngoingIfPossible() async -> Bool {
+        guard let session = sessionManager.currentSession else { return false }
 
         let sortedPlans = dayPlans.sorted { $0.dayNumber < $1.dayNumber }
         let allLocations = sortedPlans.flatMap(\.locations)
-        guard !allLocations.isEmpty else { return }
+        guard !allLocations.isEmpty else { return false }
 
         let title = allLocations.count == 1 ? allLocations[0].title : "\(allLocations.count)-stop journey"
         let subtitle = "\(sortedPlans.count) day\(sortedPlans.count == 1 ? "" : "s") • \(allLocations.count) places"
@@ -631,7 +643,7 @@ private struct PlannedTripScreen: View {
             }
         }
 
-        await ongoingTripViewModel.saveTrip(
+        return await ongoingTripViewModel.saveTrip(
             session: session,
             sourceType: "manual_planner",
             title: title,
