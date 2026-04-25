@@ -55,9 +55,6 @@ struct RootView: View {
                     OnboardingFlowView(
                         onCompleted: {
                             route = .auth
-                        },
-                        onTemporaryHome: {
-                            route = .home
                         }
                     )
                 case .auth:

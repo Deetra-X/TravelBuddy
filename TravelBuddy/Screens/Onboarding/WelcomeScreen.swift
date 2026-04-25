@@ -3,32 +3,12 @@ import UIKit
 
 struct WelcomeScreen: View {
     var onTour: () -> Void = {}
-    var onTemporaryGoHome: () -> Void = {}
 
     var body: some View {
         ZStack {
             Color.travelBackground.ignoresSafeArea()
 
             VStack(spacing: 24) {
-                HStack {
-                    Button {
-                        onTemporaryGoHome()
-                    } label: {
-                        Text("Temporary: Go Home")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.white)
-                            .padding(.horizontal, 12)
-                            .frame(height: 32)
-                            .background(
-                                RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                    .fill(Color.travelPrimary)
-                            )
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-                }
-
                 Spacer(minLength: 12)
 
                 welcomeImage

@@ -2,7 +2,6 @@ import SwiftUI
 
 struct OnboardingFlowView: View {
     let onCompleted: () -> Void
-    let onTemporaryHome: () -> Void
     @State private var page: OnboardingPage = .welcome
 
     var body: some View {
@@ -12,9 +11,6 @@ struct OnboardingFlowView: View {
                 WelcomeScreen(
                     onTour: {
                         page = .introOne
-                    },
-                    onTemporaryGoHome: {
-                        onTemporaryHome()
                     }
                 )
             case .introOne:

@@ -9,6 +9,10 @@ protocol OngoingTripServiceProtocol {
 }
 
 final class OngoingTripService: OngoingTripServiceProtocol {
+    private static let iso8601Formatter = ISO8601DateFormatter()
+    private static let encoder = JSONEncoder()
+    private static let decoder = JSONDecoder()
+
     enum OngoingTripError: LocalizedError {
         case missingConfiguration
         case invalidResponse
@@ -58,17 +62,25 @@ final class OngoingTripService: OngoingTripServiceProtocol {
             fetchedTrips = try await executeGet(url: fallbackURL, accessToken: session.accessToken)
         }
 
-        var trips = fetchedTrips
-
-        for index in trips.indices {
-            do {
-                trips[index].stops = try await fetchStops(session: session, tripId: trips[index].id)
-            } catch {
-                trips[index].stops = []
+        return await withTaskGroup(of: (Int, [OngoingTripStopRecord]).self, returning: [OngoingTripRecord].self) { group in
+            for (index, trip) in fetchedTrips.enumerated() {
+                group.addTask { [self] in
+                    do {
+                        let stops = try await fetchStops(session: session, tripId: trip.id)
+                        return (index, stops)
+                    } catch {
+                        return (index, [])
+                    }
+                }
             }
-        }
 
-        return trips
+            var trips = fetchedTrips
+            for await (index, stops) in group {
+                trips[index].stops = stops
+            }
+
+            return trips
+        }
     }
 
     func saveTrip(session: AuthSession, sourceType: String, title: String, subtitle: String, stops: [PlannedTripStopDraft]) async throws {
@@ -91,7 +103,7 @@ final class OngoingTripService: OngoingTripServiceProtocol {
         let tripURL = baseURL.appending(path: "/rest/v1/ongoing_trips")
         var tripRequest = makeRequest(url: tripURL, method: "POST", accessToken: session.accessToken)
         tripRequest.setValue("return=representation", forHTTPHeaderField: "Prefer")
-        tripRequest.httpBody = try JSONEncoder().encode(payload)
+        tripRequest.httpBody = try Self.encoder.encode(payload)
 
         let (tripData, tripResponse) = try await URLSession.shared.data(for: tripRequest)
         guard let tripHTTP = tripResponse as? HTTPURLResponse,
@@ -99,7 +111,7 @@ final class OngoingTripService: OngoingTripServiceProtocol {
             throw OngoingTripError.invalidResponse
         }
 
-        guard let trip = try JSONDecoder().decode([OngoingTripRecord].self, from: tripData).first else {
+        guard let trip = try Self.decoder.decode([OngoingTripRecord].self, from: tripData).first else {
             throw OngoingTripError.invalidResponse
         }
 
@@ -125,7 +137,7 @@ final class OngoingTripService: OngoingTripServiceProtocol {
             let stopURL = baseURL.appending(path: "/rest/v1/ongoing_trip_stops")
             var stopRequest = makeRequest(url: stopURL, method: "POST", accessToken: session.accessToken)
             stopRequest.setValue("return=representation", forHTTPHeaderField: "Prefer")
-            stopRequest.httpBody = try JSONEncoder().encode(stopPayload)
+            stopRequest.httpBody = try Self.encoder.encode(stopPayload)
 
             let (_, stopResponse) = try await URLSession.shared.data(for: stopRequest)
             guard let stopHTTP = stopResponse as? HTTPURLResponse,
@@ -173,7 +185,7 @@ final class OngoingTripService: OngoingTripServiceProtocol {
             "total_stops": total,
             "visited_stops": visited,
             "progress": progress,
-            "updated_at": ISO8601DateFormatter().string(from: Date())
+            "updated_at": Self.iso8601Formatter.string(from: Date())
         ]
 
         guard var tripComponents = URLComponents(url: baseURL.appending(path: "/rest/v1/ongoing_trips"), resolvingAgainstBaseURL: false) else {
@@ -200,7 +212,7 @@ final class OngoingTripService: OngoingTripServiceProtocol {
     ) async throws {
         let patch: [String: Any] = [
             "is_visited": isVisited,
-            "visited_at": isVisited ? ISO8601DateFormatter().string(from: Date()) : NSNull()
+            "visited_at": isVisited ? Self.iso8601Formatter.string(from: Date()) : NSNull()
         ]
 
         guard var stopComponents = URLComponents(url: baseURL.appending(path: "/rest/v1/ongoing_trip_stops"), resolvingAgainstBaseURL: false) else {
@@ -252,7 +264,7 @@ final class OngoingTripService: OngoingTripServiceProtocol {
             throw OngoingTripError.missingConfiguration
         }
 
-        let completedAt = ISO8601DateFormatter().string(from: Date())
+        let completedAt = Self.iso8601Formatter.string(from: Date())
         let tripUpdate: [String: Any] = [
             "status": "completed",
             "completed_at": completedAt,
@@ -329,7 +341,7 @@ final class OngoingTripService: OngoingTripServiceProtocol {
             throw OngoingTripError.invalidResponse
         }
 
-        return try JSONDecoder().decode(T.self, from: data)
+        return try Self.decoder.decode(T.self, from: data)
     }
 
     private func makeRequest(url: URL, method: String, accessToken: String) -> URLRequest {

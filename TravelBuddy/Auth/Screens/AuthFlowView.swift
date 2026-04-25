@@ -43,10 +43,6 @@ struct AuthFlowView: View {
                         onSignUpSuccess: {
                             viewModel.clearError()
                             path.append(.preferences)
-                        },
-                        onTemporaryHome: {
-                            viewModel.clearError()
-                            path.append(.preferences)
                         }
                     )
                 case .forgotPassword:
