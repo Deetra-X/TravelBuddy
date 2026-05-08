@@ -20,3 +20,14 @@ build/
 
 # Swift Package Manager
 .swiftpm/
+
+# XCTest / coverage artifacts
+*.xccovreport
+*.xccovarchive
+*.xcresult
+
+# App secrets (keep out of git)
+*.env
+*.env.*
+Secrets.plist
+GoogleService-Info.plist

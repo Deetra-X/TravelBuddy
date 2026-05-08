@@ -8,6 +8,7 @@
 
 /* Begin PBXFileReference section */
 		A079E64B2F87A8AA0032DF1A /* TravelBuddy.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = TravelBuddy.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A0TEST0002F87A8AA0032DF1A /* TravelBuddyTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = TravelBuddyTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -16,10 +17,22 @@
 			path = TravelBuddy;
 			sourceTree = "<group>";
 		};
+		A0TEST00032F87A8AA0032DF1A /* TravelBuddyTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = TravelBuddyTests;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		A079E6482F87A8AA0032DF1A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A0TEST00042F87A8AA0032DF1A /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -33,6 +46,7 @@
 			isa = PBXGroup;
 			children = (
 				A079E64D2F87A8AA0032DF1A /* TravelBuddy */,
+				A0TEST00032F87A8AA0032DF1A /* TravelBuddyTests */,
 				A079E64C2F87A8AA0032DF1A /* Products */,
 			);
 			sourceTree = "<group>";
@@ -41,6 +55,7 @@
 			isa = PBXGroup;
 			children = (
 				A079E64B2F87A8AA0032DF1A /* TravelBuddy.app */,
+				A0TEST0002F87A8AA0032DF1A /* TravelBuddyTests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -70,6 +85,28 @@
 			productReference = A079E64B2F87A8AA0032DF1A /* TravelBuddy.app */;
 			productType = "com.apple.product-type.application";
 		};
+		A0TEST00052F87A8AA0032DF1A /* TravelBuddyTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A0TEST000E2F87A8AC0032DF1A /* Build configuration list for PBXNativeTarget "TravelBuddyTests" */;
+			buildPhases = (
+				A0TEST00062F87A8AA0032DF1A /* Sources */,
+				A0TEST00042F87A8AA0032DF1A /* Frameworks */,
+				A0TEST00072F87A8AA0032DF1A /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				A0TEST00032F87A8AA0032DF1A /* TravelBuddyTests */,
+			);
+			name = TravelBuddyTests;
+			packageProductDependencies = (
+			);
+			productName = TravelBuddyTests;
+			productReference = A0TEST0002F87A8AA0032DF1A /* TravelBuddyTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -82,6 +119,10 @@
 				TargetAttributes = {
 					A079E64A2F87A8AA0032DF1A = {
 						CreatedOnToolsVersion = 26.2;
+					};
+					A0TEST00052F87A8AA0032DF1A = {
+						CreatedOnToolsVersion = 26.2;
+						TestTargetID = A079E64A2F87A8AA0032DF1A;
 					};
 				};
 			};
@@ -100,6 +141,7 @@
 			projectRoot = "";
 			targets = (
 				A079E64A2F87A8AA0032DF1A /* TravelBuddy */,
+				A0TEST00052F87A8AA0032DF1A /* TravelBuddyTests */,
 			);
 		};
 /* End PBXProject section */
@@ -112,10 +154,24 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		A0TEST00072F87A8AA0032DF1A /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A079E6472F87A8AA0032DF1A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A0TEST00062F87A8AA0032DF1A /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -310,6 +366,36 @@
 			};
 			name = Release;
 		};
+		A0TEST000C2F87A8AC0032DF1A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = Deenath.TravelBuddyTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TravelBuddy.app/TravelBuddy";
+			};
+			name = Debug;
+		};
+		A0TEST000D2F87A8AC0032DF1A /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
+				PRODUCT_BUNDLE_IDENTIFIER = Deenath.TravelBuddyTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TravelBuddy.app/TravelBuddy";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -327,6 +413,15 @@
 			buildConfigurations = (
 				A079E6572F87A8AC0032DF1A /* Debug */,
 				A079E6582F87A8AC0032DF1A /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A0TEST000E2F87A8AC0032DF1A /* Build configuration list for PBXNativeTarget "TravelBuddyTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A0TEST000C2F87A8AC0032DF1A /* Debug */,
+				A0TEST000D2F87A8AC0032DF1A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
